@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { 
   LayoutDashboard, 
   Building2, 
@@ -11,7 +11,6 @@ import {
   UserCircle, 
   Calendar, 
   ClipboardCheck,
-  LogOut ,
   MonitorPlay
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -25,18 +24,11 @@ const adminMenuItems = [
   { href: '/admin/students', label: 'Students', icon: Users },
   { href: '/admin/timetable', label: 'Timetable', icon: Calendar },
   { href: '/admin/attendance', label: 'Attendance', icon: ClipboardCheck },
-  { href: '/dashboard', label: 'Today\'s Timetable', icon: MonitorPlay },
+  { href: '/dashboard', label: "Today's Timetable", icon: MonitorPlay },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
-  const router = useRouter()
-
-  const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    router.push('/login')
-    router.refresh()
-  }
 
   return (
     <div className="flex h-screen w-64 flex-col bg-white border-r border-gray-200">
@@ -46,7 +38,7 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
         {adminMenuItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
@@ -69,15 +61,11 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Logout */}
+      {/* Footer - Optional branding */}
       <div className="border-t border-gray-200 p-4">
-        <button
-          onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
-        >
-          <LogOut className="h-5 w-5" />
-          Logout
-        </button>
+        <p className="text-xs text-gray-500 text-center">
+          Madrasa Management System
+        </p>
       </div>
     </div>
   )

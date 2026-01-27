@@ -3,8 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StudentsList } from './students-list'
 import { AddStudentDialog } from './add-student-dialog'
 import { StudentsSearch } from './students-search'
-import { BulkImportDialog } from './bulk-import-dialog'
-import { BulkExportButton } from './bulk-export-button'
 
 async function getStudentsWithClasses(searchQuery?: string) {
   const supabase = await createClient()
@@ -76,11 +74,7 @@ export default async function StudentsPage({
           <h1 className="text-3xl font-bold text-gray-900">Students</h1>
           <p className="text-gray-500 mt-1">Manage enrolled students</p>
         </div>
-        <div className="flex gap-2">
-          <BulkExportButton />
-          <BulkImportDialog />
-          <AddStudentDialog classes={classes as any} />
-        </div>
+        <AddStudentDialog classes={classes as any} />
       </div>
 
       <StudentsSearch initialSearch={searchQuery} />
