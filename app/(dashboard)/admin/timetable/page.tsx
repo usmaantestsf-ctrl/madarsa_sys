@@ -1,79 +1,144 @@
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { TimetableSelector } from './timetable-selector'
 import { TimetableGrid } from './timetable-grid'
 import { AddTimetableDialog } from './add-timetable-dialog'
 
-async function getTimetableData() {
+async function getDepartments() {
   const supabase = await createClient()
-  
-  const { data: timetable } = await supabase
+  const { data } = await supabase
+    .from('departments')
+    .select('id, name, type')
+    .eq('is_active', true)
+    .order('name')
+
+  return data || []
+}
+
+async function getClasses() {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('classes')
+    .select('id, name, department_id')
+    .eq('is_active', true)
+    .order('name')
+
+  return data || []
+}
+
+async function getSubjects() {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('subjects')
+    .select('id, name')
+    .order('name')
+
+  return data || []
+}
+
+async function getLecturers() {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('lecturers')
+    .select('id, name')
+    .eq('is_active', true)
+    .order('name')
+
+  return data || []
+}
+
+async function getTimetable(classId?: string) {
+  if (!classId) return []
+
+  const supabase = await createClient()
+  const { data } = await supabase
     .from('timetable')
     .select(`
       *,
-      classes (id, name),
-      subjects (id, name),
-      lecturers (id, name),
-      time_slots (id, slot_number, start_time, end_time)
+      subjects (
+        id,
+        name
+      ),
+      lecturers (
+        id,
+        name
+      ),
+      classes (
+        id,
+        name
+      )
     `)
-    .eq('is_active', true)
-    .is('valid_to', null)
+    .eq('class_id', classId)
     .order('day_of_week')
+    .order('start_time')
 
-  return timetable || []
+  return data || []
 }
 
-async function getFormData() {
-  const supabase = await createClient()
-  
-  const [classes, subjects, lecturers, timeSlots] = await Promise.all([
-    supabase.from('classes').select('id, name').eq('is_active', true).order('name'),
-    supabase.from('subjects').select('id, name').order('name'),
-    supabase.from('lecturers').select('id, name').eq('is_active', true).order('name'),
-    supabase.from('time_slots').select('*').order('slot_number'),
-  ])
+export default async function TimetablePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ department?: string; class?: string }>
+}) {
+  const params = await searchParams
+  const selectedDepartment = params.department
+  const selectedClass = params.class
 
-  // Add console logging to see what we're getting
-  console.log('📊 Form Data:', {
-    classes: classes.data?.length,
-    subjects: subjects.data?.length,
-    lecturers: lecturers.data?.length,
-    timeSlots: timeSlots.data?.length,
-  })
-
-  console.log('⏰ Time Slots:', timeSlots.data)
-
-  return {
-    classes: classes.data || [],
-    subjects: subjects.data || [],
-    lecturers: lecturers.data || [],
-    timeSlots: timeSlots.data || [],
-  }
-}
-
-export default async function TimetablePage() {
-  const [timetable, formData] = await Promise.all([
-    getTimetableData(),
-    getFormData()
+  const [departments, classes, subjects, lecturers, timetable] = await Promise.all([
+    getDepartments(),
+    getClasses(),
+    getSubjects(),
+    getLecturers(),
+    getTimetable(selectedClass),
   ])
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Timetable</h1>
-          <p className="text-gray-500 mt-1">Manage weekly class schedule</p>
+          <h1 className="text-3xl font-bold text-gray-900">Timetable Management</h1>
+          <p className="text-gray-500 mt-1">Manage weekly class schedules</p>
         </div>
-        <AddTimetableDialog {...formData} />
+        {selectedClass && (
+          <AddTimetableDialog
+            classId={selectedClass}
+            subjects={subjects}
+            lecturers={lecturers}
+          />
+        )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Weekly Schedule</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TimetableGrid timetable={timetable as any} timeSlots={formData.timeSlots} />
-        </CardContent>
-      </Card>
+      <TimetableSelector
+        departments={departments}
+        classes={classes}
+        selectedDepartment={selectedDepartment}
+        selectedClass={selectedClass}
+      />
+
+      {selectedClass && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Weekly Schedule</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TimetableGrid
+              timetable={timetable as any}
+              subjects={subjects}
+              lecturers={lecturers}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {!selectedClass && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-gray-500">
+              Please select a department and class to view timetable
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

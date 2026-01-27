@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Calendar } from 'lucide-react'
 
 type Department = {
   id: string
@@ -18,24 +16,21 @@ type Class = {
   department_id: string
 }
 
-export function AttendanceSelector({
+export function TimetableSelector({
   departments,
   classes,
   selectedDepartment,
   selectedClass,
-  selectedDate,
 }: {
   departments: Department[]
   classes: Class[]
   selectedDepartment?: string
   selectedClass?: string
-  selectedDate: string
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [departmentId, setDepartmentId] = useState(selectedDepartment || '')
   const [classId, setClassId] = useState(selectedClass || '')
-  const [date, setDate] = useState(selectedDate)
   const [filteredClasses, setFilteredClasses] = useState<Class[]>([])
 
   // Filter classes when department changes
@@ -63,15 +58,12 @@ export function AttendanceSelector({
     if (classId) params.set('class', classId)
     else params.delete('class')
 
-    if (date) params.set('date', date)
-    else params.delete('date')
-
-    router.push(`/admin/attendance?${params.toString()}`)
+    router.push(`/admin/timetable?${params.toString()}`)
   }
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Department */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -113,26 +105,10 @@ export function AttendanceSelector({
           </select>
         </div>
 
-        {/* Date */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Date <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <Input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="pr-10"
-            />
-            <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-          </div>
-        </div>
-
         {/* Filter Button */}
         <div className="flex items-end">
           <Button onClick={handleFilter} className="w-full" disabled={!departmentId || !classId}>
-            View Attendance
+            View Timetable
           </Button>
         </div>
       </div>

@@ -4,7 +4,25 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, X } from 'lucide-react'
+import { X } from 'lucide-react'
+
+type TimetableEntry = {
+  id: string
+  class_id: string
+  subject_id: string
+  lecturer_id: string
+  day_of_week: number
+  start_time: string
+  end_time: string
+  subjects: {
+    id: string
+    name: string
+  }
+  lecturers: {
+    id: string
+    name: string
+  }
+}
 
 type Subject = {
   id: string
@@ -26,24 +44,24 @@ const daysOfWeek = [
   { value: 6, label: 'Sunday' },
 ]
 
-export function AddTimetableDialog({
-  classId,
+export function EditTimetableDialog({
+  entry,
   subjects,
   lecturers,
+  onClose,
 }: {
-  classId: string
+  entry: TimetableEntry
   subjects: Subject[]
   lecturers: Lecturer[]
+  onClose: () => void
 }) {
-  const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
-    class_id: classId,
-    subject_id: '',
-    lecturer_id: '',
-    day_of_week: 0,
-    start_time: '08:00',
-    end_time: '09:00',
+    subject_id: entry.subject_id,
+    lecturer_id: entry.lecturer_id,
+    day_of_week: entry.day_of_week,
+    start_time: entry.start_time,
+    end_time: entry.end_time,
   })
   const router = useRouter()
 
@@ -51,63 +69,29 @@ export function AddTimetableDialog({
     e.preventDefault()
     setLoading(true)
 
-    try {
-      const res = await fetch('/api/timetable', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      })
+    const res = await fetch(`/api/timetable/${entry.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData),
+    })
 
-      if (res.ok) {
-        // Success: reset form and refresh
-        setOpen(false)
-        setFormData({
-          class_id: classId,
-          subject_id: '',
-          lecturer_id: '',
-          day_of_week: 0,
-          start_time: '08:00',
-          end_time: '09:00',
-        })
-        router.refresh()
-      } else {
-        // Handle errors safely
-        let errorMsg = 'Failed to create timetable entry'
-
-        // Try to parse JSON, fallback to text
-        const text = await res.text()
-        try {
-          const data = text ? JSON.parse(text) : null
-          errorMsg = data?.error || errorMsg
-        } catch (err) {
-          console.warn('Response is not JSON:', err)
-        }
-
-        alert(errorMsg)
-      }
-    } catch (err) {
-      console.error('Network or server error:', err)
-      alert('Something went wrong. Please try again.')
-    } finally {
-      setLoading(false)
+    if (res.ok) {
+      onClose()
+      router.refresh()
+    } else {
+      const error = await res.json()
+      alert(error.error || 'Failed to update timetable entry')
     }
-  }
 
-  if (!open) {
-    return (
-      <Button onClick={() => setOpen(true)}>
-        <Plus className="h-4 w-4 mr-2" />
-        Add Entry
-      </Button>
-    )
+    setLoading(false)
   }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Add Timetable Entry</h2>
-          <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
+          <h2 className="text-xl font-semibold">Edit Timetable Entry</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -199,9 +183,9 @@ export function AddTimetableDialog({
 
           <div className="flex gap-2 pt-4">
             <Button type="submit" disabled={loading} className="flex-1">
-              {loading ? 'Creating...' : 'Create Entry'}
+              {loading ? 'Updating...' : 'Update Entry'}
             </Button>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
           </div>

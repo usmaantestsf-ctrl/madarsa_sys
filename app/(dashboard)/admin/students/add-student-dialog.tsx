@@ -1,27 +1,37 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Plus, X } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
-type ClassWithDepartment = {
+type Department = {
   id: string
   name: string
-  departments: {
-    name: string
-  }
+  type: string
 }
 
-export function AddStudentDialog({ classes }: { classes: ClassWithDepartment[] }) {
+type Class = {
+  id: string
+  name: string
+  department_id: string
+}
+
+export function AddStudentDialog() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [allClasses, setAllClasses] = useState<Class[]>([])
+  const [filteredClasses, setFilteredClasses] = useState<Class[]>([])
+  
   const [formData, setFormData] = useState({
     name: '',
     nic: '',
     phone: '',
     address: '',
+    department_id: '',
     class_id: '',
     guardian_name: '',
     guardian_phone: '',
@@ -29,6 +39,43 @@ export function AddStudentDialog({ classes }: { classes: ClassWithDepartment[] }
     admission_number: '',
   })
   const router = useRouter()
+
+  // Load departments and classes
+  useEffect(() => {
+    if (open) {
+      loadData()
+    }
+  }, [open])
+
+  const loadData = async () => {
+    const supabase = createClient()
+    
+    const [deptRes, classRes] = await Promise.all([
+      supabase.from('departments').select('id, name, type').eq('is_active', true).order('name'),
+      supabase.from('classes').select('id, name, department_id').eq('is_active', true).order('name')
+    ])
+
+    if (deptRes.data) setDepartments(deptRes.data)
+    if (classRes.data) setAllClasses(classRes.data)
+  }
+
+  // Filter classes when department changes
+  useEffect(() => {
+    if (formData.department_id) {
+      const filtered = allClasses.filter(c => c.department_id === formData.department_id)
+      setFilteredClasses(filtered)
+      
+      // Reset class selection if current class doesn't belong to new department
+      if (formData.class_id) {
+        const classStillValid = filtered.some(c => c.id === formData.class_id)
+        if (!classStillValid) {
+          setFormData(prev => ({ ...prev, class_id: '' }))
+        }
+      }
+    } else {
+      setFilteredClasses([])
+    }
+  }, [formData.department_id, allClasses])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -47,6 +94,7 @@ export function AddStudentDialog({ classes }: { classes: ClassWithDepartment[] }
         nic: '',
         phone: '',
         address: '',
+        department_id: '',
         class_id: '',
         guardian_name: '',
         guardian_phone: '',
@@ -112,25 +160,6 @@ export function AddStudentDialog({ classes }: { classes: ClassWithDepartment[] }
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Class <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.class_id}
-                  onChange={(e) => setFormData({ ...formData, class_id: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                  required
-                >
-                  <option value="">Select class</option>
-                  {classes.map((cls) => (
-                    <option key={cls.id} value={cls.id}>
-                      {cls.name} - {cls.departments.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
                   NIC (Optional)
                 </label>
                 <Input
@@ -161,6 +190,53 @@ export function AddStudentDialog({ classes }: { classes: ClassWithDepartment[] }
                   placeholder="Full address"
                   className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm min-h-[60px]"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Department & Class Selection */}
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Department & Class</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Department <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.department_id}
+                  onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                  required
+                >
+                  <option value="">Select department first</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name} ({dept.type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Class <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.class_id}
+                  onChange={(e) => setFormData({ ...formData, class_id: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                  required
+                  disabled={!formData.department_id}
+                >
+                  <option value="">
+                    {formData.department_id ? 'Select class' : 'Select department first'}
+                  </option>
+                  {filteredClasses.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

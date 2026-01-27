@@ -14,7 +14,9 @@ async function getStudentsWithClasses(searchQuery?: string) {
       classes (
         id,
         name,
+        department_id,
         departments (
+          id,
           name
         )
       )
@@ -37,23 +39,6 @@ async function getStudentsWithClasses(searchQuery?: string) {
   return students || []
 }
 
-async function getClasses() {
-  const supabase = await createClient()
-  const { data: classes } = await supabase
-    .from('classes')
-    .select(`
-      id,
-      name,
-      departments (
-        name
-      )
-    `)
-    .eq('is_active', true)
-    .order('name')
-
-  return classes || []
-}
-
 export default async function StudentsPage({
   searchParams,
 }: {
@@ -62,10 +47,7 @@ export default async function StudentsPage({
   const params = await searchParams
   const searchQuery = params.search
 
-  const [students, classes] = await Promise.all([
-    getStudentsWithClasses(searchQuery),
-    getClasses()
-  ])
+  const students = await getStudentsWithClasses(searchQuery)
 
   return (
     <div className="space-y-6">
@@ -74,7 +56,7 @@ export default async function StudentsPage({
           <h1 className="text-3xl font-bold text-gray-900">Students</h1>
           <p className="text-gray-500 mt-1">Manage enrolled students</p>
         </div>
-        <AddStudentDialog classes={classes as any} />
+        <AddStudentDialog />
       </div>
 
       <StudentsSearch initialSearch={searchQuery} />
@@ -89,7 +71,7 @@ export default async function StudentsPage({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <StudentsList students={students} classes={classes as any} />
+          <StudentsList students={students as any} />
         </CardContent>
       </Card>
     </div>

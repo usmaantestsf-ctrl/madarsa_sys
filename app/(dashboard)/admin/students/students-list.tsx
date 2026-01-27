@@ -23,27 +23,15 @@ type StudentWithClass = {
   classes: {
     id: string
     name: string
+    department_id: string
     departments: {
+      id: string
       name: string
     }
   }
 }
 
-type ClassWithDepartment = {
-  id: string
-  name: string
-  departments: {
-    name: string
-  }
-}
-
-export function StudentsList({ 
-  students, 
-  classes 
-}: { 
-  students: StudentWithClass[]
-  classes: ClassWithDepartment[]
-}) {
+export function StudentsList({ students }: { students: StudentWithClass[] }) {
   const router = useRouter()
   const [editingStudent, setEditingStudent] = useState<StudentWithClass | null>(null)
 
@@ -75,6 +63,7 @@ export function StudentsList({
             <tr>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Admission #</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Student Name</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Department</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Class</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Guardian</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
@@ -98,11 +87,11 @@ export function StudentsList({
                     )}
                   </div>
                 </td>
-                <td className="px-4 py-3">
-                  <div>
-                    <p className="text-sm text-gray-900">{student.classes.name}</p>
-                    <p className="text-xs text-gray-500">{student.classes.departments.name}</p>
-                  </div>
+                <td className="px-4 py-3 text-sm text-gray-900">
+                  {student.classes.departments.name}
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-900">
+                  {student.classes.name}
                 </td>
                 <td className="px-4 py-3">
                   <div>
@@ -146,7 +135,6 @@ export function StudentsList({
       {editingStudent && (
         <EditStudentDialog
           student={editingStudent}
-          classes={classes}
           onClose={() => setEditingStudent(null)}
         />
       )}
