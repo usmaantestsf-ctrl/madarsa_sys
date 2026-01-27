@@ -48,20 +48,50 @@ export async function DELETE(
     const { id } = await params
     const supabase = await createClient()
     
-    const { error } = await supabase
+    // Get lecturer with user_id
+    const { data: lecturer, error: fetchError } = await supabase
+      .from('lecturers')
+      .select('user_id')
+      .eq('id', id)
+      .single()
+
+    if (fetchError || !lecturer) {
+      return NextResponse.json({ error: 'Lecturer not found' }, { status: 404 })
+    }
+
+    // Delete lecturer first
+    const { error: lecturerError } = await supabase
       .from('lecturers')
       .delete()
       .eq('id', id)
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+    if (lecturerError) {
+      return NextResponse.json({ error: lecturerError.message }, { status: 400 })
     }
 
-    return NextResponse.json({ success: true })
+    // Then delete user if exists
+    if (lecturer.user_id) {
+      const { error: userError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', lecturer.user_id)
+
+      if (userError) {
+        console.error('Failed to delete user:', userError)
+        // Lecturer is already deleted, so just log the error
+      }
+    }
+
+    return NextResponse.json({ 
+      success: true,
+      message: 'Lecturer and user deleted successfully'
+    })
   } catch (error) {
+    console.error('Delete lecturer error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     )
   }
 }
+

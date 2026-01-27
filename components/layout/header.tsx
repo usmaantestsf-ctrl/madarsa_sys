@@ -11,7 +11,6 @@ export function Header() {
   const [showDropdown, setShowDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -31,32 +30,56 @@ export function Header() {
 
   return (
     <header className="h-16 border-b border-gray-200 bg-white">
-      <div className="flex h-full items-center justify-between px-6">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">
-            Welcome back, {user?.fullName || 'User'}
-          </h2>
-          <p className="text-sm text-gray-500">
-            {new Date().toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
-          </p>
+      <div className="flex h-full items-center justify-between px-4 lg:px-6">
+        {/* Welcome Section with padding for mobile hamburger */}
+        <div className="pl-12 lg:pl-0">
+          <div className="hidden md:block">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Welcome back, {user?.fullName || 'User'}
+            </h2>
+            <p className="text-sm text-gray-500">
+              {new Date().toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </p>
+          </div>
+
+          <div className="md:hidden">
+            <h2 className="text-base font-semibold text-gray-900">
+              {user?.fullName || 'User'}
+            </h2>
+            <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+          </div>
         </div>
 
         {/* User Menu Dropdown */}
         <div className="relative" ref={dropdownRef}>
+          {/* Desktop Button */}
           <button
             onClick={() => setShowDropdown(!showDropdown)}
-            className="flex items-center gap-3 hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors"
+            className="hidden lg:flex items-center gap-3 hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors"
           >
             <div className="text-right">
               <p className="text-sm font-medium text-gray-900">{user?.fullName}</p>
               <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
             </div>
             <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
+              <span className="text-sm font-semibold text-primary-700">
+                {user?.fullName?.charAt(0) || 'A'}
+              </span>
+            </div>
+            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+          </button>
+
+          {/* Mobile Button */}
+          <button
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="lg:hidden flex items-center gap-2 hover:bg-gray-50 rounded-lg p-2 transition-colors"
+          >
+            <div className="h-9 w-9 rounded-full bg-primary-100 flex items-center justify-center">
               <span className="text-sm font-semibold text-primary-700">
                 {user?.fullName?.charAt(0) || 'A'}
               </span>
