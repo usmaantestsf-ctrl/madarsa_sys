@@ -99,9 +99,9 @@ export default function LoginPage() {
             {loading ? 'Signing in...' : 'Sign In'}
           </Button>
 
-          <div className="text-xs text-gray-500 text-center mt-4">
+          {/* <div className="text-xs text-gray-500 text-center mt-4">
             Default: admin@madrasa.lk / admin123
-          </div>
+          </div> */}
         </form>
       </CardContent>
     </Card>
