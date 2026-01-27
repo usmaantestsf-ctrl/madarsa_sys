@@ -24,7 +24,7 @@ const adminMenuItems = [
   { href: '/admin/students', label: 'Students', icon: Users },
   { href: '/admin/timetable', label: 'Timetable', icon: Calendar },
   { href: '/admin/attendance', label: 'Attendance', icon: ClipboardCheck },
-  { href: '/dashboard', label: "Today's Timetable", icon: MonitorPlay },
+  // { href: '/dashboard', label: "Today's Timetable", icon: MonitorPlay },
 ]
 
 export function Sidebar() {

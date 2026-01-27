@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Pencil, Trash2, Clock, User, BookOpen } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { EditTimetableDialog } from './edit-timetable-dialog'
 
 type TimetableEntry = {
   id: string
@@ -12,8 +11,7 @@ type TimetableEntry = {
   subject_id: string
   lecturer_id: string
   day_of_week: number
-  start_time: string
-  end_time: string
+  time_slot_id: string
   subjects: {
     id: string
     name: string
@@ -25,6 +23,12 @@ type TimetableEntry = {
   classes: {
     id: string
     name: string
+  }
+  time_slots: {
+    id: string
+    slot_number: number
+    start_time: string
+    end_time: string
   }
 }
 
@@ -38,7 +42,7 @@ type Lecturer = {
   name: string
 }
 
-const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 export function TimetableGrid({
   timetable,
@@ -64,12 +68,26 @@ export function TimetableGrid({
     }
   }
 
-  // Group by day
+  // Format time to display (HH:MM AM/PM)
+  const formatTime = (time: string) => {
+    const [hours, minutes] = time.split(':')
+    const hour = parseInt(hours)
+    const ampm = hour >= 12 ? 'PM' : 'AM'
+    const displayHour = hour % 12 || 12
+    return `${displayHour}:${minutes} ${ampm}`
+  }
+
+  // Group by day and sort by slot_number
   const groupedByDay = daysOfWeek.map((day, index) => ({
     day,
     entries: timetable
       .filter((entry) => entry.day_of_week === index)
-      .sort((a, b) => a.start_time.localeCompare(b.start_time)),
+      .sort((a, b) => {
+        // Handle cases where time_slots might be undefined
+        const slotA = a.time_slots?.slot_number ?? Infinity
+        const slotB = b.time_slots?.slot_number ?? Infinity
+        return slotA - slotB
+      }),
   }))
 
   if (timetable.length === 0) {
@@ -101,7 +119,15 @@ export function TimetableGrid({
                       <div className="flex items-center gap-4 mb-2">
                         <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
                           <Clock className="h-4 w-4 text-gray-400" />
-                          {entry.start_time} - {entry.end_time}
+                          <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-semibold mr-1">
+                            Slot {entry.time_slots?.slot_number}
+                          </span>
+                          {entry.time_slots?.start_time && entry.time_slots?.end_time && (
+                            <>
+                              {formatTime(entry.time_slots.start_time)} -{' '}
+                              {formatTime(entry.time_slots.end_time)}
+                            </>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-700">
                           <BookOpen className="h-4 w-4 text-gray-400" />
@@ -137,14 +163,14 @@ export function TimetableGrid({
         })}
       </div>
 
-      {editingEntry && (
+      {/* {editingEntry && (
         <EditTimetableDialog
           entry={editingEntry}
           subjects={subjects}
           lecturers={lecturers}
           onClose={() => setEditingEntry(null)}
         />
-      )}
+      )} */}
     </>
   )
 }

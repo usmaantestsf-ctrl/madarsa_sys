@@ -1,9 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Plus, X } from 'lucide-react'
 
 type Subject = {
@@ -16,6 +15,13 @@ type Lecturer = {
   name: string
 }
 
+type TimeSlot = {
+  id: string
+  slot_number: number
+  start_time: string
+  end_time: string
+}
+
 const daysOfWeek = [
   { value: 0, label: 'Monday' },
   { value: 1, label: 'Tuesday' },
@@ -23,7 +29,6 @@ const daysOfWeek = [
   { value: 3, label: 'Thursday' },
   { value: 4, label: 'Friday' },
   { value: 5, label: 'Saturday' },
-  { value: 6, label: 'Sunday' },
 ]
 
 export function AddTimetableDialog({
@@ -37,15 +42,54 @@ export function AddTimetableDialog({
 }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
+  const [loadingSlots, setLoadingSlots] = useState(true)
   const [formData, setFormData] = useState({
     class_id: classId,
     subject_id: '',
     lecturer_id: '',
     day_of_week: 0,
-    start_time: '08:00',
-    end_time: '09:00',
+    time_slot_id: '',
   })
   const router = useRouter()
+
+  // Fetch time slots when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchTimeSlots()
+    }
+  }, [open])
+
+  const fetchTimeSlots = async () => {
+    try {
+      setLoadingSlots(true)
+      const res = await fetch('/api/time-slots')
+      if (res.ok) {
+        const data = await res.json()
+        setTimeSlots(data)
+      } else {
+        console.error('Failed to fetch time slots')
+      }
+    } catch (err) {
+      console.error('Error fetching time slots:', err)
+    } finally {
+      setLoadingSlots(false)
+    }
+  }
+
+  // Format time to display (HH:MM AM/PM)
+  const formatTime = (time: string) => {
+    const [hours, minutes] = time.split(':')
+    const hour = parseInt(hours)
+    const ampm = hour >= 12 ? 'PM' : 'AM'
+    const displayHour = hour % 12 || 12
+    return `${displayHour}:${minutes} ${ampm}`
+  }
+
+  // Get selected time slot details
+  const selectedTimeSlot = timeSlots.find(
+    (slot) => slot.id === formData.time_slot_id
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -59,22 +103,17 @@ export function AddTimetableDialog({
       })
 
       if (res.ok) {
-        // Success: reset form and refresh
         setOpen(false)
         setFormData({
           class_id: classId,
           subject_id: '',
           lecturer_id: '',
           day_of_week: 0,
-          start_time: '08:00',
-          end_time: '09:00',
+          time_slot_id: '',
         })
         router.refresh()
       } else {
-        // Handle errors safely
         let errorMsg = 'Failed to create timetable entry'
-
-        // Try to parse JSON, fallback to text
         const text = await res.text()
         try {
           const data = text ? JSON.parse(text) : null
@@ -82,7 +121,6 @@ export function AddTimetableDialog({
         } catch (err) {
           console.warn('Response is not JSON:', err)
         }
-
         alert(errorMsg)
       }
     } catch (err) {
@@ -133,30 +171,33 @@ export function AddTimetableDialog({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Start Time <span className="text-red-500">*</span>
-              </label>
-              <Input
-                type="time"
-                value={formData.start_time}
-                onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                End Time <span className="text-red-500">*</span>
-              </label>
-              <Input
-                type="time"
-                value={formData.end_time}
-                onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                required
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Time Slot <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={formData.time_slot_id}
+              onChange={(e) => setFormData({ ...formData, time_slot_id: e.target.value })}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+              required
+              disabled={loadingSlots}
+            >
+              <option value="">
+                {loadingSlots ? 'Loading slots...' : 'Select time slot'}
+              </option>
+              {timeSlots.map((slot) => (
+                <option key={slot.id} value={slot.id}>
+                  Slot {slot.slot_number} - {formatTime(slot.start_time)} to{' '}
+                  {formatTime(slot.end_time)}
+                </option>
+              ))}
+            </select>
+            {selectedTimeSlot && (
+              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
+                <strong>Selected Time:</strong> {formatTime(selectedTimeSlot.start_time)} -{' '}
+                {formatTime(selectedTimeSlot.end_time)}
+              </div>
+            )}
           </div>
 
           <div>

@@ -1,15 +1,14 @@
-// app/api/timetable/route.ts
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { class_id, subject_id, lecturer_id, day_of_week, start_time, end_time } = body
+    const { class_id, subject_id, lecturer_id, day_of_week, time_slot_id } = body
 
-    if (!class_id || !subject_id || !lecturer_id) {
+    if (!class_id || !subject_id || !lecturer_id || !time_slot_id) {
       return NextResponse.json(
-        { error: 'class_id, subject_id and lecturer_id are required' },
+        { error: 'class_id, subject_id, lecturer_id and time_slot_id are required' },
         { status: 400 }
       )
     }
@@ -23,8 +22,7 @@ export async function POST(request: Request) {
         subject_id,
         lecturer_id,
         day_of_week,
-        start_time,
-        end_time,
+        time_slot_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -40,13 +38,4 @@ export async function POST(request: Request) {
     console.error('POST /api/timetable error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
-
-// Optional: keep existing PUT and DELETE if needed
-export async function PUT(request: Request) {
-  return NextResponse.json({ error: 'PUT not implemented' }, { status: 405 })
-}
-
-export async function DELETE(request: Request) {
-  return NextResponse.json({ error: 'DELETE not implemented' }, { status: 405 })
 }

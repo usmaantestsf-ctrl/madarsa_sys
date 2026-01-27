@@ -66,11 +66,18 @@ async function getTimetable(classId?: string) {
       classes (
         id,
         name
+      ),
+      time_slots (
+        id,
+        slot_number,
+        start_time,
+        end_time
       )
     `)
     .eq('class_id', classId)
+    .eq('is_active', true)
     .order('day_of_week')
-    .order('start_time')
+    .order('time_slots(slot_number)')
 
   return data || []
 }
