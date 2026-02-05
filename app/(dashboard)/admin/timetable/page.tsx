@@ -11,7 +11,6 @@ async function getDepartments() {
     .select('id, name, type')
     .eq('is_active', true)
     .order('name')
-
   return data || []
 }
 
@@ -22,7 +21,6 @@ async function getClasses() {
     .select('id, name, department_id')
     .eq('is_active', true)
     .order('name')
-
   return data || []
 }
 
@@ -32,24 +30,12 @@ async function getSubjects() {
     .from('subjects')
     .select('id, name')
     .order('name')
-
-  return data || []
-}
-
-async function getLecturers() {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('lecturers')
-    .select('id, name')
-    .eq('is_active', true)
-    .order('name')
-
   return data || []
 }
 
 async function getTimetable(classId?: string) {
   if (!classId) return []
-
+  
   const supabase = await createClient()
   const { data } = await supabase
     .from('timetable')
@@ -59,9 +45,9 @@ async function getTimetable(classId?: string) {
         id,
         name
       ),
-      lecturers (
-        id,
-        name
+      lecturer:lecturer_id (
+        lecturer_id,
+        full_name
       ),
       classes (
         id,
@@ -78,7 +64,7 @@ async function getTimetable(classId?: string) {
     .eq('is_active', true)
     .order('day_of_week')
     .order('time_slots(slot_number)')
-
+  
   return data || []
 }
 
@@ -91,11 +77,10 @@ export default async function TimetablePage({
   const selectedDepartment = params.department
   const selectedClass = params.class
 
-  const [departments, classes, subjects, lecturers, timetable] = await Promise.all([
+  const [departments, classes, subjects, timetable] = await Promise.all([
     getDepartments(),
     getClasses(),
     getSubjects(),
-    getLecturers(),
     getTimetable(selectedClass),
   ])
 
@@ -107,11 +92,7 @@ export default async function TimetablePage({
           <p className="text-gray-500 mt-1">Manage weekly class schedules</p>
         </div>
         {selectedClass && (
-          <AddTimetableDialog
-            classId={selectedClass}
-            subjects={subjects}
-            lecturers={lecturers}
-          />
+          <AddTimetableDialog classId={selectedClass} subjects={subjects} />
         )}
       </div>
 
@@ -131,7 +112,6 @@ export default async function TimetablePage({
             <TimetableGrid
               timetable={timetable as any}
               subjects={subjects}
-              lecturers={lecturers}
             />
           </CardContent>
         </Card>

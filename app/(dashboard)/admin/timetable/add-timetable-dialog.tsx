@@ -35,16 +35,16 @@ const daysOfWeek = [
 export function AddTimetableDialog({
   classId,
   subjects,
-  lecturers,
 }: {
   classId: string
   subjects: Subject[]
-  lecturers: Lecturer[]
 }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
+  const [lecturers, setLecturers] = useState<Lecturer[]>([])
   const [loadingSlots, setLoadingSlots] = useState(true)
+  const [loadingLecturers, setLoadingLecturers] = useState(true)
   const [formData, setFormData] = useState({
     class_id: classId,
     subject_id: '',
@@ -54,10 +54,11 @@ export function AddTimetableDialog({
   })
   const router = useRouter()
 
-  // Fetch time slots when dialog opens
+  // Fetch time slots and lecturers when dialog opens
   useEffect(() => {
     if (open) {
       fetchTimeSlots()
+      fetchLecturers()
     }
   }, [open])
 
@@ -75,6 +76,23 @@ export function AddTimetableDialog({
       console.error('Error fetching time slots:', err)
     } finally {
       setLoadingSlots(false)
+    }
+  }
+
+  const fetchLecturers = async () => {
+    try {
+      setLoadingLecturers(true)
+      const res = await fetch('/api/lecturers/list')
+      if (res.ok) {
+        const data = await res.json()
+        setLecturers(data)
+      } else {
+        console.error('Failed to fetch lecturers')
+      }
+    } catch (err) {
+      console.error('Error fetching lecturers:', err)
+    } finally {
+      setLoadingLecturers(false)
     }
   }
 
@@ -97,10 +115,16 @@ export function AddTimetableDialog({
     setLoading(true)
 
     try {
+      // Send null instead of empty string for lecturer_id
+      const payload = {
+        ...formData,
+        lecturer_id: formData.lecturer_id || null,
+      }
+
       const res = await fetch('/api/timetable', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       })
 
       if (res.ok) {
@@ -222,15 +246,17 @@ export function AddTimetableDialog({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Lecturer <span className="text-red-500">*</span>
+              Lecturer
             </label>
             <select
               value={formData.lecturer_id}
               onChange={(e) => setFormData({ ...formData, lecturer_id: e.target.value })}
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-              required
+              disabled={loadingLecturers}
             >
-              <option value="">Select lecturer</option>
+              <option value="">
+                {loadingLecturers ? 'Loading lecturers...' : 'Select lecturer (optional)'}
+              </option>
               {lecturers.map((lecturer) => (
                 <option key={lecturer.id} value={lecturer.id}>
                   {lecturer.name}

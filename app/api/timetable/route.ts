@@ -6,9 +6,10 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { class_id, subject_id, lecturer_id, day_of_week, time_slot_id } = body
 
-    if (!class_id || !subject_id || !lecturer_id || !time_slot_id) {
+    // Remove lecturer_id from required fields check
+    if (!class_id || !subject_id || !time_slot_id) {
       return NextResponse.json(
-        { error: 'class_id, subject_id, lecturer_id and time_slot_id are required' },
+        { error: 'class_id, subject_id, and time_slot_id are required' },
         { status: 400 }
       )
     }
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
       .insert({
         class_id,
         subject_id,
-        lecturer_id,
+        lecturer_id: lecturer_id || null, // Allow null if not provided
         day_of_week,
         time_slot_id,
         created_at: new Date().toISOString(),
