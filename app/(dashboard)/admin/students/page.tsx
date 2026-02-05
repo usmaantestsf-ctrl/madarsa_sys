@@ -4,28 +4,17 @@ import { StudentsList } from './students-list'
 import { AddStudentDialog } from './add-student-dialog'
 import { StudentsSearch } from './students-search'
 
-async function getStudentsWithClasses(searchQuery?: string) {
+async function getStudents(searchQuery?: string) {
   const supabase = await createClient()
   
   let query = supabase
     .from('students')
-    .select(`
-      *,
-      classes (
-        id,
-        name,
-        department_id,
-        departments (
-          id,
-          name
-        )
-      )
-    `)
+    .select('*')
     .order('created_at', { ascending: false })
 
   if (searchQuery) {
     query = query.or(
-      `name.ilike.%${searchQuery}%,admission_number.ilike.%${searchQuery}%,nic.ilike.%${searchQuery}%`
+      `name_with_initial.ilike.%${searchQuery}%,full_name.ilike.%${searchQuery}%,admission_number.ilike.%${searchQuery}%,nic_number.ilike.%${searchQuery}%,father_name.ilike.%${searchQuery}%,district.ilike.%${searchQuery}%`
     )
   }
 
@@ -47,7 +36,7 @@ export default async function StudentsPage({
   const params = await searchParams
   const searchQuery = params.search
 
-  const students = await getStudentsWithClasses(searchQuery)
+  const students = await getStudents(searchQuery)
 
   return (
     <div className="space-y-6">

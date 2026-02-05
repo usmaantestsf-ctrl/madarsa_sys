@@ -5,15 +5,22 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { 
-      name, 
-      nic, 
-      phone, 
-      address, 
-      class_id, 
-      guardian_name, 
-      guardian_phone, 
-      guardian_nic,
-      admission_number 
+      admission_number,
+      name_with_initial,
+      full_name,
+      date_of_birth,
+      nic_number,
+      date_of_admission,
+      father_name,
+      father_status, // ADDED
+      madrasa_grade,
+      usthadh_name,
+      usthadh_contact_number,
+      school_grade,
+      section,
+      district,
+      address,
+      contact_number
     } = body
 
     const supabase = await createClient()
@@ -21,15 +28,22 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from('students')
       .insert({ 
-        name,
-        nic: nic || null,
-        phone: phone || null,
-        address: address || null,
-        class_id,
-        guardian_name,
-        guardian_phone,
-        guardian_nic: guardian_nic || null,
         admission_number,
+        name_with_initial,
+        full_name,
+        date_of_birth,
+        nic_number: nic_number || null,
+        date_of_admission: date_of_admission || new Date().toISOString().split('T')[0],
+        father_name,
+        father_status: father_status || null, // ADDED
+        madrasa_grade,
+        usthadh_name: usthadh_name || null,
+        usthadh_contact_number: usthadh_contact_number || null,
+        school_grade: school_grade || null,
+        section: section || null,
+        district: district || null,
+        address: address || null,
+        contact_number: contact_number || null,
         is_active: true 
       })
       .select()

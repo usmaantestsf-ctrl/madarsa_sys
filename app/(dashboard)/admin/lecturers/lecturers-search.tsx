@@ -4,15 +4,18 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, X, UserCircle } from 'lucide-react'
+import { Search, X, UserCircle, Award, Languages } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 type SearchResult = {
-  id: string
-  name: string
-  nic: string
-  email: string | null
-  phone: string
+  lecturer_id: number
+  full_name: string
+  name_with_initial: string | null
+  nic_no: string | null
+  mobile: string | null
+  admission_no: string | null
+  qualifications?: { degree_name: string }[]
+  languages?: { language_name: string }[]
 }
 
 export function LecturersSearch({ initialSearch }: { initialSearch?: string }) {
@@ -35,9 +38,18 @@ export function LecturersSearch({ initialSearch }: { initialSearch?: string }) {
       const supabase = createClient()
 
       const { data } = await supabase
-        .from('lecturers')
-        .select('id, name, nic, email, phone')
-        .or(`name.ilike.%${search}%,nic.ilike.%${search}%,email.ilike.%${search}%`)
+        .from('lecturer')
+        .select(`
+          lecturer_id,
+          full_name,
+          name_with_initial,
+          nic_no,
+          mobile,
+          admission_no,
+          qualifications:lecturer_qualification(degree_name),
+          languages:lecturer_language(language_name)
+        `)
+        .or(`full_name.ilike.%${search}%,nic_no.ilike.%${search}%,admission_no.ilike.%${search}%,mobile.ilike.%${search}%`)
         .limit(5)
 
       setResults(data || [])
@@ -69,8 +81,8 @@ export function LecturersSearch({ initialSearch }: { initialSearch?: string }) {
   }
 
   const handleSelectResult = (lecturer: SearchResult) => {
-    setSearch(lecturer.name)
-    router.push(`/admin/lecturers?search=${encodeURIComponent(lecturer.nic)}`)
+    setSearch(lecturer.full_name)
+    router.push(`/admin/lecturers?search=${encodeURIComponent(lecturer.nic_no || lecturer.full_name)}`)
     setShowDropdown(false)
   }
 
@@ -88,7 +100,7 @@ export function LecturersSearch({ initialSearch }: { initialSearch?: string }) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             type="text"
-            placeholder="Search by name, NIC, or email..."
+            placeholder="Search by name, NIC, admission no, or mobile..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onFocus={() => results.length > 0 && setShowDropdown(true)}
@@ -103,18 +115,39 @@ export function LecturersSearch({ initialSearch }: { initialSearch?: string }) {
               </div>
               {results.map((lecturer) => (
                 <button
-                  key={lecturer.id}
+                  key={lecturer.lecturer_id}
                   type="button"
                   onClick={() => handleSelectResult(lecturer)}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3 border-b border-gray-100 last:border-0"
                 >
-                  <UserCircle className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <UserCircle className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900">{lecturer.name}</p>
-                    <p className="text-sm text-gray-600">NIC: {lecturer.nic}</p>
-                    <p className="text-xs text-gray-500">
-                      {lecturer.email || lecturer.phone}
-                    </p>
+                    <p className="font-medium text-gray-900">{lecturer.full_name}</p>
+                    {lecturer.name_with_initial && (
+                      <p className="text-xs text-gray-500">{lecturer.name_with_initial}</p>
+                    )}
+                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-600">
+                      {lecturer.nic_no && <span>NIC: {lecturer.nic_no}</span>}
+                      {lecturer.admission_no && <span>Adm: {lecturer.admission_no}</span>}
+                    </div>
+                    {lecturer.mobile && (
+                      <p className="text-xs text-gray-500 mt-0.5">{lecturer.mobile}</p>
+                    )}
+                    {/* Show qualifications and languages count */}
+                    <div className="flex items-center gap-3 mt-1">
+                      {lecturer.qualifications && lecturer.qualifications.length > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs text-blue-600">
+                          <Award className="h-3 w-3" />
+                          {lecturer.qualifications.length}
+                        </span>
+                      )}
+                      {lecturer.languages && lecturer.languages.length > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs text-green-600">
+                          <Languages className="h-3 w-3" />
+                          {lecturer.languages.length}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </button>
               ))}

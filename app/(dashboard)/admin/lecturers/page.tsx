@@ -8,14 +8,18 @@ async function getLecturers(searchQuery?: string) {
   const supabase = await createClient()
   
   let query = supabase
-    .from('lecturers')
-    .select('*')
-    .order('created_at', { ascending: false })
+    .from('lecturer')
+    .select(`
+      *,
+      qualifications:lecturer_qualification(*),
+      languages:lecturer_language(*)
+    `)
+    .order('record_created_at', { ascending: false })
 
   // Apply search filters if query exists
   if (searchQuery) {
     query = query.or(
-      `name.ilike.%${searchQuery}%,nic.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`
+      `full_name.ilike.%${searchQuery}%,nic_no.ilike.%${searchQuery}%,admission_no.ilike.%${searchQuery}%,mobile.ilike.%${searchQuery}%`
     )
   }
 
@@ -36,7 +40,6 @@ export default async function LecturersPage({
 }) {
   const params = await searchParams
   const searchQuery = params.search
-
   const lecturers = await getLecturers(searchQuery)
 
   return (

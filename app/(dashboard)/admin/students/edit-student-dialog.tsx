@@ -5,26 +5,27 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { X } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 
 type Student = {
   id: string
-  name: string
-  nic: string | null
-  phone: string | null
-  address: string | null
-  class_id: string
-  guardian_name: string
-  guardian_phone: string
-  guardian_nic: string | null
   admission_number: string
+  name_with_initial: string
+  full_name: string
+  date_of_birth: string
+  nic_number: string | null
+  date_of_admission: string
+  father_name: string
+  father_status: string | null // ADDED
+  madrasa_grade: string
+  class_id: string | null
+  usthadh_name: string | null
+  usthadh_contact_number: string | null
+  school_grade: string | null
+  section: string | null
+  district: string | null
+  address: string | null
+  contact_number: string | null
   is_active: boolean
-}
-
-type Department = {
-  id: string
-  name: string
-  type: string
 }
 
 type Class = {
@@ -41,66 +42,49 @@ export function EditStudentDialog({
   onClose: () => void
 }) {
   const [loading, setLoading] = useState(false)
-  const [departments, setDepartments] = useState<Department[]>([])
-  const [allClasses, setAllClasses] = useState<Class[]>([])
-  const [filteredClasses, setFilteredClasses] = useState<Class[]>([])
+  const [classes, setClasses] = useState<Class[]>([])
+  const [loadingClasses, setLoadingClasses] = useState(false)
+  
   const [formData, setFormData] = useState({
-    name: student.name,
-    nic: student.nic || '',
-    phone: student.phone || '',
-    address: student.address || '',
-    department_id: '',
-    class_id: student.class_id,
-    guardian_name: student.guardian_name,
-    guardian_phone: student.guardian_phone,
-    guardian_nic: student.guardian_nic || '',
     admission_number: student.admission_number,
+    name_with_initial: student.name_with_initial,
+    full_name: student.full_name,
+    date_of_birth: student.date_of_birth,
+    nic_number: student.nic_number || '',
+    date_of_admission: student.date_of_admission,
+    father_name: student.father_name,
+    father_status: student.father_status || '', // ADDED
+    madrasa_grade: student.madrasa_grade,
+    usthadh_name: student.usthadh_name || '',
+    usthadh_contact_number: student.usthadh_contact_number || '',
+    school_grade: student.school_grade || '',
+    section: student.section || '',
+    district: student.district || '',
+    address: student.address || '',
+    contact_number: student.contact_number || '',
     is_active: student.is_active,
   })
   const router = useRouter()
 
-  // Load data and set initial department
+  // Fetch classes on mount
   useEffect(() => {
-    loadData()
+    fetchClasses()
   }, [])
 
-  const loadData = async () => {
-    const supabase = createClient()
-    
-    const [deptRes, classRes] = await Promise.all([
-      supabase.from('departments').select('id, name, type').eq('is_active', true).order('name'),
-      supabase.from('classes').select('id, name, department_id').eq('is_active', true).order('name')
-    ])
-
-    if (deptRes.data) setDepartments(deptRes.data)
-    if (classRes.data) {
-      setAllClasses(classRes.data)
-      
-      // Find the department of the current class
-      const currentClass = classRes.data.find(c => c.id === student.class_id)
-      if (currentClass) {
-        setFormData(prev => ({ ...prev, department_id: currentClass.department_id }))
+  const fetchClasses = async () => {
+    setLoadingClasses(true)
+    try {
+      const res = await fetch('/api/classes')
+      if (res.ok) {
+        const data = await res.json()
+        setClasses(data)
       }
+    } catch (error) {
+      console.error('Failed to fetch classes:', error)
+    } finally {
+      setLoadingClasses(false)
     }
   }
-
-  // Filter classes when department changes
-  useEffect(() => {
-    if (formData.department_id) {
-      const filtered = allClasses.filter(c => c.department_id === formData.department_id)
-      setFilteredClasses(filtered)
-      
-      // Reset class if not in new department
-      if (formData.class_id) {
-        const classStillValid = filtered.some(c => c.id === formData.class_id)
-        if (!classStillValid) {
-          setFormData(prev => ({ ...prev, class_id: '' }))
-        }
-      }
-    } else {
-      setFilteredClasses([])
-    }
-  }, [formData.department_id, allClasses])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -123,9 +107,22 @@ export function EditStudentDialog({
     setLoading(false)
   }
 
+  // Calculate age from date of birth
+  const calculateAge = (dob: string) => {
+    if (!dob) return ''
+    const today = new Date()
+    const birthDate = new Date(dob)
+    let age = today.getFullYear() - birthDate.getFullYear()
+    const monthDiff = today.getMonth() - birthDate.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--
+    }
+    return age
+  }
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">Edit Student</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -134,24 +131,13 @@ export function EditStudentDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Student Information */}
+          {/* Basic Information */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Student Information</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Basic Information</h3>
             <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Admission Number <span className="text-red-500">*</span>
+                  Admission No <span className="text-red-500">*</span>
                 </label>
                 <Input
                   value={formData.admission_number}
@@ -162,117 +148,238 @@ export function EditStudentDialog({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  NIC (Optional)
+                  Date of Admission <span className="text-red-500">*</span>
                 </label>
                 <Input
-                  value={formData.nic}
-                  onChange={(e) => setFormData({ ...formData, nic: e.target.value })}
+                  type="date"
+                  value={formData.date_of_admission}
+                  onChange={(e) => setFormData({ ...formData, date_of_admission: e.target.value })}
+                  required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone (Optional)
+                  Name with Initial <span className="text-red-500">*</span>
                 </label>
                 <Input
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  value={formData.name_with_initial}
+                  onChange={(e) => setFormData({ ...formData, name_with_initial: e.target.value })}
+                  placeholder="e.g., M.A. Hassan"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  value={formData.full_name}
+                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                  placeholder="e.g., Mohamed Ali Hassan"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date of Birth <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  type="date"
+                  value={formData.date_of_birth}
+                  onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Age
+                </label>
+                <Input
+                  value={formData.date_of_birth ? `${calculateAge(formData.date_of_birth)} years` : ''}
+                  disabled
+                  placeholder="Auto-calculated"
+                  className="bg-gray-50"
                 />
               </div>
 
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address (Optional)
+                  N.I.C Number
                 </label>
-                <textarea
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm min-h-[60px]"
+                <Input
+                  value={formData.nic_number}
+                  onChange={(e) => setFormData({ ...formData, nic_number: e.target.value })}
+                  placeholder="e.g., 200512345678"
                 />
               </div>
             </div>
           </div>
 
-          {/* Department & Class Selection */}
+          {/* Father Information - UPDATED SECTION */}
           <div className="border-t pt-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Department & Class</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Father Information</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Department <span className="text-red-500">*</span>
+                  Father <span className="text-red-500">*</span>
                 </label>
-                <select
-                  value={formData.department_id}
-                  onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                <Input
+                  value={formData.father_name}
+                  onChange={(e) => setFormData({ ...formData, father_name: e.target.value })}
+                  placeholder="e.g., Ali Hassan"
                   required
-                >
-                  <option value="">Select department</option>
-                  {departments.map((dept) => (
-                    <option key={dept.id} value={dept.id}>
-                      {dept.name} ({dept.type})
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Class <span className="text-red-500">*</span>
+                  Father Status
                 </label>
                 <select
-                  value={formData.class_id}
-                  onChange={(e) => setFormData({ ...formData, class_id: e.target.value })}
+                  value={formData.father_status}
+                  onChange={(e) => setFormData({ ...formData, father_status: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="">Select status</option>
+                  <option value="YES">Alive</option>
+                  <option value="NO">Deceased</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Academic Information */}
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Academic Information</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Class (in Madrasa) <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.madrasa_grade}
+                  onChange={(e) => setFormData({ ...formData, madrasa_grade: e.target.value })}
                   className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
                   required
-                  disabled={!formData.department_id}
+                  disabled={loadingClasses}
                 >
                   <option value="">
-                    {formData.department_id ? 'Select class' : 'Select department first'}
+                    {loadingClasses ? 'Loading classes...' : 'Select class'}
                   </option>
-                  {filteredClasses.map((cls) => (
-                    <option key={cls.id} value={cls.id}>
+                  {classes.map((cls) => (
+                    <option key={cls.id} value={cls.name}>
                       {cls.name}
                     </option>
                   ))}
                 </select>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Grade (in School Subjects)
+                </label>
+                <select
+                  value={formData.school_grade}
+                  onChange={(e) => setFormData({ ...formData, school_grade: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="">Select grade</option>
+                  <option value="Grade 1">Grade 1</option>
+                  <option value="Grade 2">Grade 2</option>
+                  <option value="Grade 3">Grade 3</option>
+                  <option value="Grade 4">Grade 4</option>
+                  <option value="Grade 5">Grade 5</option>
+                  <option value="Grade 6">Grade 6</option>
+                  <option value="Grade 7">Grade 7</option>
+                  <option value="Grade 8">Grade 8</option>
+                  <option value="Grade 9">Grade 9</option>
+                  <option value="Grade 10">Grade 10</option>
+                  <option value="Grade 11">Grade 11</option>
+                  <option value="Grade 12">Grade 12</option>
+                  <option value="Grade 13">Grade 13</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Section
+                </label>
+                <select
+                  value={formData.section}
+                  onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="">Select section</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Class Usthadh
+                </label>
+                <Input
+                  value={formData.usthadh_name}
+                  onChange={(e) => setFormData({ ...formData, usthadh_name: e.target.value })}
+                  placeholder="e.g., Usthadh Ahmed"
+                />
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Usthadh Contact Number
+                </label>
+                <Input
+                  value={formData.usthadh_contact_number}
+                  onChange={(e) => setFormData({ ...formData, usthadh_contact_number: e.target.value })}
+                  placeholder="e.g., 0771234567"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Guardian Information */}
+          {/* Contact Information */}
           <div className="border-t pt-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Guardian Information</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Contact Information</h3>
             <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  District
+                </label>
+                <Input
+                  value={formData.district}
+                  onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                  placeholder="e.g., Colombo"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Contact Number
+                </label>
+                <Input
+                  value={formData.contact_number}
+                  onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
+                  placeholder="e.g., 0771234567"
+                />
+              </div>
+
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Guardian Name <span className="text-red-500">*</span>
+                  Address
                 </label>
-                <Input
-                  value={formData.guardian_name}
-                  onChange={(e) => setFormData({ ...formData, guardian_name: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Guardian Phone <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  value={formData.guardian_phone}
-                  onChange={(e) => setFormData({ ...formData, guardian_phone: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Guardian NIC (Optional)
-                </label>
-                <Input
-                  value={formData.guardian_nic}
-                  onChange={(e) => setFormData({ ...formData, guardian_nic: e.target.value })}
+                <textarea
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="Full address"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm min-h-[60px]"
                 />
               </div>
             </div>

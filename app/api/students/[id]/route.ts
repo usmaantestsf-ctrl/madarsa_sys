@@ -9,15 +9,22 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
     const {
-      name,
-      nic,
-      phone,
-      address,
-      class_id,
-      guardian_name,
-      guardian_phone,
-      guardian_nic,
       admission_number,
+      name_with_initial,
+      full_name,
+      date_of_birth,
+      nic_number,
+      date_of_admission,
+      father_name,
+      father_status, // ADDED
+      madrasa_grade,
+      usthadh_name,
+      usthadh_contact_number,
+      school_grade,
+      section,
+      district,
+      address,
+      contact_number,
       is_active,
     } = body
 
@@ -26,15 +33,22 @@ export async function PUT(
     const { data, error } = await supabase
       .from('students')
       .update({
-        name,
-        nic: nic || null,
-        phone: phone || null,
-        address: address || null,
-        class_id,
-        guardian_name,
-        guardian_phone,
-        guardian_nic: guardian_nic || null,
         admission_number,
+        name_with_initial,
+        full_name,
+        date_of_birth,
+        nic_number: nic_number || null,
+        date_of_admission,
+        father_name,
+        father_status: father_status || null, // ADDED
+        madrasa_grade,
+        usthadh_name: usthadh_name || null,
+        usthadh_contact_number: usthadh_contact_number || null,
+        school_grade: school_grade || null,
+        section: section || null,
+        district: district || null,
+        address: address || null,
+        contact_number: contact_number || null,
         is_active,
         updated_at: new Date().toISOString(),
       })

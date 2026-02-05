@@ -3,32 +3,31 @@
 import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Pencil, Trash2, Phone, User } from 'lucide-react'
+import { Pencil, Trash2, Phone, User, Calendar, Heart, HeartCrack } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { EditStudentDialog } from './edit-student-dialog'
 
 type StudentWithClass = {
   id: string
-  name: string
-  nic: string | null
-  phone: string | null
-  address: string | null
   admission_number: string
-  guardian_name: string
-  guardian_phone: string
-  guardian_nic: string | null
+  name_with_initial: string
+  full_name: string
+  date_of_birth: string
+  nic_number: string | null
+  date_of_admission: string
+  father_name: string
+  father_status: string | null // ADDED
+  madrasa_grade: string
+  class_id: string | null
+  usthadh_name: string | null
+  usthadh_contact_number: string | null
+  school_grade: string | null
+  section: string | null
+  district: string | null
+  address: string | null
+  contact_number: string | null
   is_active: boolean
   created_at: string
-  class_id: string
-  classes: {
-    id: string
-    name: string
-    department_id: string
-    departments: {
-      id: string
-      name: string
-    }
-  }
 }
 
 export function StudentsList({ students }: { students: StudentWithClass[] }) {
@@ -47,6 +46,26 @@ export function StudentsList({ students }: { students: StudentWithClass[] }) {
     }
   }
 
+  // Calculate age at runtime from date of birth
+  const calculateAge = (dob: string) => {
+    const today = new Date()
+    const birthDate = new Date(dob)
+    let age = today.getFullYear() - birthDate.getFullYear()
+    const monthDiff = today.getMonth() - birthDate.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--
+    }
+    return age
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    })
+  }
+
   if (students.length === 0) {
     return (
       <div className="text-center py-12">
@@ -63,9 +82,11 @@ export function StudentsList({ students }: { students: StudentWithClass[] }) {
             <tr>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Admission #</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Student Name</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Department</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Class</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Guardian</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Age</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Madrasa Grade</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">School Grade</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Father</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Contact</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Actions</th>
             </tr>
@@ -78,31 +99,78 @@ export function StudentsList({ students }: { students: StudentWithClass[] }) {
                 </td>
                 <td className="px-4 py-3">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{student.name}</p>
-                    {student.phone && (
-                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                        <Phone className="h-3 w-3" />
-                        {student.phone}
+                    <p className="text-sm font-medium text-gray-900">{student.name_with_initial}</p>
+                    <p className="text-xs text-gray-500">{student.full_name}</p>
+                    {student.date_of_admission && (
+                      <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
+                        <Calendar className="h-3 w-3" />
+                        Admitted: {formatDate(student.date_of_admission)}
                       </p>
                     )}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-900">
-                  {student.classes.departments.name}
+                  {/* Age calculated at runtime */}
+                  {calculateAge(student.date_of_birth)} yrs
+                  <p className="text-xs text-gray-500">DOB: {formatDate(student.date_of_birth)}</p>
+                </td>
+                <td className="px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{student.madrasa_grade}</p>
+                    {student.section && (
+                      <p className="text-xs text-gray-500">Section: {student.section}</p>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-900">
-                  {student.classes.name}
+                  {student.school_grade || <span className="text-gray-400">—</span>}
                 </td>
                 <td className="px-4 py-3">
                   <div>
                     <p className="text-sm text-gray-900 flex items-center gap-1">
                       <User className="h-3 w-3" />
-                      {student.guardian_name}
+                      {student.father_name}
                     </p>
-                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                      <Phone className="h-3 w-3" />
-                      {student.guardian_phone}
-                    </p>
+                    {/* ADDED: Father Status Display */}
+                    {student.father_status && (
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                        {student.father_status === 'YES' ? (
+                          <>
+                            <Heart className="h-3 w-3 text-green-600" />
+                            <span className="text-green-600">Alive</span>
+                          </>
+                        ) : (
+                          <>
+                            <HeartCrack className="h-3 w-3 text-gray-400" />
+                            <span className="text-gray-500">Deceased</span>
+                          </>
+                        )}
+                      </p>
+                    )}
+                    {student.usthadh_name && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Usthadh: {student.usthadh_name}
+                      </p>
+                    )}
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <div>
+                    {student.contact_number && (
+                      <p className="text-xs text-gray-600 flex items-center gap-1">
+                        <Phone className="h-3 w-3" />
+                        {student.contact_number}
+                      </p>
+                    )}
+                    {student.usthadh_contact_number && (
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                        <Phone className="h-3 w-3" />
+                        U: {student.usthadh_contact_number}
+                      </p>
+                    )}
+                    {student.district && (
+                      <p className="text-xs text-gray-400 mt-1">{student.district}</p>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-sm">
