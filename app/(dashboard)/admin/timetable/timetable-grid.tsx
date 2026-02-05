@@ -9,7 +9,7 @@ type TimetableEntry = {
   id: string
   class_id: string
   subject_id: string
-  lecturer_id: string
+  lecturer_id: string | null
   day_of_week: number
   time_slot_id: string
   subjects: {
@@ -17,9 +17,9 @@ type TimetableEntry = {
     name: string
   }
   lecturers: {
-    id: string
-    name: string
-  }
+    lecturer_id: string
+    full_name: string
+  } | null
   classes: {
     id: string
     name: string
@@ -37,21 +37,14 @@ type Subject = {
   name: string
 }
 
-type Lecturer = {
-  id: string
-  name: string
-}
-
 const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 export function TimetableGrid({
   timetable,
   subjects,
-  lecturers,
 }: {
   timetable: TimetableEntry[]
   subjects: Subject[]
-  lecturers: Lecturer[]
 }) {
   const router = useRouter()
   const [editingEntry, setEditingEntry] = useState<TimetableEntry | null>(null)
@@ -83,12 +76,14 @@ export function TimetableGrid({
     entries: timetable
       .filter((entry) => entry.day_of_week === index)
       .sort((a, b) => {
-        // Handle cases where time_slots might be undefined
         const slotA = a.time_slots?.slot_number ?? Infinity
         const slotB = b.time_slots?.slot_number ?? Infinity
         return slotA - slotB
       }),
   }))
+
+  console.log('Timetable entries:', timetable) // Debug log
+  console.log('Grouped by day:', groupedByDay) // Debug log
 
   if (timetable.length === 0) {
     return (
@@ -131,12 +126,12 @@ export function TimetableGrid({
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-700">
                           <BookOpen className="h-4 w-4 text-gray-400" />
-                          {entry.subjects.name}
+                          {entry.subjects?.name || 'Unknown Subject'}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <User className="h-4 w-4 text-gray-400" />
-                        {entry.lecturers.name}
+                        {entry.lecturers?.full_name || 'No lecturer assigned'}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -163,11 +158,11 @@ export function TimetableGrid({
         })}
       </div>
 
+      {/* Uncomment when EditTimetableDialog is ready */}
       {/* {editingEntry && (
         <EditTimetableDialog
           entry={editingEntry}
           subjects={subjects}
-          lecturers={lecturers}
           onClose={() => setEditingEntry(null)}
         />
       )} */}

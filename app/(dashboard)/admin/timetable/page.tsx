@@ -37,7 +37,7 @@ async function getTimetable(classId?: string) {
   if (!classId) return []
   
   const supabase = await createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('timetable')
     .select(`
       *,
@@ -45,7 +45,7 @@ async function getTimetable(classId?: string) {
         id,
         name
       ),
-      lecturer:lecturer_id (
+      lecturers:lecturer_id (
         lecturer_id,
         full_name
       ),
@@ -63,7 +63,9 @@ async function getTimetable(classId?: string) {
     .eq('class_id', classId)
     .eq('is_active', true)
     .order('day_of_week')
-    .order('time_slots(slot_number)')
+  
+  console.log('Timetable data:', data) // Debug log
+  console.log('Timetable error:', error) // Debug log
   
   return data || []
 }
