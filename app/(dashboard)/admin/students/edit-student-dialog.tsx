@@ -15,7 +15,7 @@ type Student = {
   nic_number: string | null
   date_of_admission: string
   father_name: string
-  father_status: string | null // ADDED
+  father_status: string | null
   madrasa_grade: string
   class_id: string | null
   usthadh_name: string | null
@@ -26,6 +26,7 @@ type Student = {
   address: string | null
   contact_number: string | null
   is_active: boolean
+  is_passed: boolean // ADDED
 }
 
 type Class = {
@@ -44,7 +45,6 @@ export function EditStudentDialog({
   const [loading, setLoading] = useState(false)
   const [classes, setClasses] = useState<Class[]>([])
   const [loadingClasses, setLoadingClasses] = useState(false)
-  
   const [formData, setFormData] = useState({
     admission_number: student.admission_number,
     name_with_initial: student.name_with_initial,
@@ -53,7 +53,7 @@ export function EditStudentDialog({
     nic_number: student.nic_number || '',
     date_of_admission: student.date_of_admission,
     father_name: student.father_name,
-    father_status: student.father_status || '', // ADDED
+    father_status: student.father_status || '',
     madrasa_grade: student.madrasa_grade,
     usthadh_name: student.usthadh_name || '',
     usthadh_contact_number: student.usthadh_contact_number || '',
@@ -63,10 +63,10 @@ export function EditStudentDialog({
     address: student.address || '',
     contact_number: student.contact_number || '',
     is_active: student.is_active,
+    is_passed: student.is_passed || false, // ADDED
   })
   const router = useRouter()
 
-  // Fetch classes on mount
   useEffect(() => {
     fetchClasses()
   }, [])
@@ -89,13 +89,11 @@ export function EditStudentDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-
     const res = await fetch(`/api/students/${student.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData),
     })
-
     if (res.ok) {
       onClose()
       router.refresh()
@@ -103,11 +101,9 @@ export function EditStudentDialog({
       const error = await res.json()
       alert(error.error || 'Failed to update student')
     }
-
     setLoading(false)
   }
 
-  // Calculate age from date of birth
   const calculateAge = (dob: string) => {
     if (!dob) return ''
     const today = new Date()
@@ -121,23 +117,25 @@ export function EditStudentDialog({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Edit Student</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-4 rounded-full p-1 hover:bg-gray-100"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        <h2 className="mb-6 text-2xl font-bold">Edit Student</h2>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Information */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Basic Information</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <h3 className="mb-4 text-lg font-semibold text-gray-700">Basic Information</h3>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Admission No <span className="text-red-500">*</span>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Admission No *
                 </label>
                 <Input
                   value={formData.admission_number}
@@ -145,10 +143,9 @@ export function EditStudentDialog({
                   required
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date of Admission <span className="text-red-500">*</span>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Date of Admission *
                 </label>
                 <Input
                   type="date"
@@ -157,10 +154,9 @@ export function EditStudentDialog({
                   required
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name with Initial <span className="text-red-500">*</span>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Name with Initial *
                 </label>
                 <Input
                   value={formData.name_with_initial}
@@ -169,10 +165,9 @@ export function EditStudentDialog({
                   required
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name <span className="text-red-500">*</span>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Full Name *
                 </label>
                 <Input
                   value={formData.full_name}
@@ -181,10 +176,9 @@ export function EditStudentDialog({
                   required
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date of Birth <span className="text-red-500">*</span>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Date of Birth *
                 </label>
                 <Input
                   type="date"
@@ -193,21 +187,12 @@ export function EditStudentDialog({
                   required
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Age
-                </label>
-                <Input
-                  value={formData.date_of_birth ? `${calculateAge(formData.date_of_birth)} years` : ''}
-                  disabled
-                  placeholder="Auto-calculated"
-                  className="bg-gray-50"
-                />
+                <label className="mb-1 block text-sm font-medium text-gray-700">Age</label>
+                <Input value={calculateAge(formData.date_of_birth)} disabled />
               </div>
-
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   N.I.C Number
                 </label>
                 <Input
@@ -219,14 +204,12 @@ export function EditStudentDialog({
             </div>
           </div>
 
-          {/* Father Information - UPDATED SECTION */}
-          <div className="border-t pt-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Father Information</h3>
-            <div className="grid grid-cols-2 gap-4">
+          {/* Father Information */}
+          <div>
+            <h3 className="mb-4 text-lg font-semibold text-gray-700">Father Information</h3>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Father <span className="text-red-500">*</span>
-                </label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Father *</label>
                 <Input
                   value={formData.father_name}
                   onChange={(e) => setFormData({ ...formData, father_name: e.target.value })}
@@ -234,9 +217,8 @@ export function EditStudentDialog({
                   required
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Father Status
                 </label>
                 <select
@@ -253,12 +235,12 @@ export function EditStudentDialog({
           </div>
 
           {/* Academic Information */}
-          <div className="border-t pt-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Academic Information</h3>
-            <div className="grid grid-cols-2 gap-4">
+          <div>
+            <h3 className="mb-4 text-lg font-semibold text-gray-700">Academic Information</h3>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Class (in Madrasa) <span className="text-red-500">*</span>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Class (in Madrasa) *
                 </label>
                 <select
                   value={formData.madrasa_grade}
@@ -267,9 +249,7 @@ export function EditStudentDialog({
                   required
                   disabled={loadingClasses}
                 >
-                  <option value="">
-                    {loadingClasses ? 'Loading classes...' : 'Select class'}
-                  </option>
+                  <option value="">{loadingClasses ? 'Loading classes...' : 'Select class'}</option>
                   {classes.map((cls) => (
                     <option key={cls.id} value={cls.name}>
                       {cls.name}
@@ -277,9 +257,8 @@ export function EditStudentDialog({
                   ))}
                 </select>
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Grade (in School Subjects)
                 </label>
                 <select
@@ -303,11 +282,8 @@ export function EditStudentDialog({
                   <option value="Grade 13">Grade 13</option>
                 </select>
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Section
-                </label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Section</label>
                 <select
                   value={formData.section}
                   onChange={(e) => setFormData({ ...formData, section: e.target.value })}
@@ -320,9 +296,8 @@ export function EditStudentDialog({
                   <option value="D">D</option>
                 </select>
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Class Usthadh
                 </label>
                 <Input
@@ -331,14 +306,15 @@ export function EditStudentDialog({
                   placeholder="e.g., Usthadh Ahmed"
                 />
               </div>
-
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Usthadh Contact Number
                 </label>
                 <Input
                   value={formData.usthadh_contact_number}
-                  onChange={(e) => setFormData({ ...formData, usthadh_contact_number: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, usthadh_contact_number: e.target.value })
+                  }
                   placeholder="e.g., 0771234567"
                 />
               </div>
@@ -346,22 +322,19 @@ export function EditStudentDialog({
           </div>
 
           {/* Contact Information */}
-          <div className="border-t pt-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Contact Information</h3>
-            <div className="grid grid-cols-2 gap-4">
+          <div>
+            <h3 className="mb-4 text-lg font-semibold text-gray-700">Contact Information</h3>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  District
-                </label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">District</label>
                 <Input
                   value={formData.district}
                   onChange={(e) => setFormData({ ...formData, district: e.target.value })}
                   placeholder="e.g., Colombo"
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Contact Number
                 </label>
                 <Input
@@ -370,11 +343,8 @@ export function EditStudentDialog({
                   placeholder="e.g., 0771234567"
                 />
               </div>
-
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address
-                </label>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-gray-700">Address</label>
                 <textarea
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
@@ -385,25 +355,51 @@ export function EditStudentDialog({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 border-t pt-4">
-            <input
-              type="checkbox"
-              id="is_active"
-              checked={formData.is_active}
-              onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-              className="rounded border-gray-300"
-            />
-            <label htmlFor="is_active" className="text-sm text-gray-700">
-              Active
-            </label>
+          {/* Status Section - ADDED */}
+          {/* Status Section - UPDATED */}
+          <div>
+            <h3 className="mb-4 text-lg font-semibold text-gray-700">Student Status *</h3>
+            <div className="flex flex-col gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="student_status"
+                  checked={formData.is_active && !formData.is_passed}
+                  onChange={() => setFormData({ ...formData, is_active: true, is_passed: false })}
+                  className="border-gray-300"
+                />
+                <span className="text-sm font-medium text-gray-700">Active Student</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="student_status"
+                  checked={formData.is_passed}
+                  onChange={() => setFormData({ ...formData, is_active: false, is_passed: true })}
+                  className="border-gray-300"
+                />
+                <span className="text-sm font-medium text-gray-700">Passed Out</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="student_status"
+                  checked={!formData.is_active && !formData.is_passed}
+                  onChange={() => setFormData({ ...formData, is_active: false, is_passed: false })}
+                  className="border-gray-300"
+                />
+                <span className="text-sm font-medium text-gray-700">Inactive</span>
+              </label>
+            </div>
           </div>
 
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" disabled={loading} className="flex-1">
-              {loading ? 'Updating...' : 'Update Student'}
-            </Button>
+
+          <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Updating...' : 'Update Student'}
             </Button>
           </div>
         </form>

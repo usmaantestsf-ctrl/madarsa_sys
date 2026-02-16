@@ -51,6 +51,7 @@ export async function PUT(
         contact_number: contact_number || null,
         is_active,
         updated_at: new Date().toISOString(),
+        is_passed: body.is_passed,
       })
       .eq('id', id)
       .select()

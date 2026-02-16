@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Pencil, Trash2, Phone, User, Calendar, Heart, HeartCrack } from 'lucide-react'
+import { Pencil, Trash2, Phone, User, Calendar, Heart, HeartCrack, GraduationCap } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { EditStudentDialog } from './edit-student-dialog'
 
@@ -16,7 +16,7 @@ type StudentWithClass = {
   nic_number: string | null
   date_of_admission: string
   father_name: string
-  father_status: string | null // ADDED
+  father_status: string | null
   madrasa_grade: string
   class_id: string | null
   usthadh_name: string | null
@@ -27,6 +27,7 @@ type StudentWithClass = {
   address: string | null
   contact_number: string | null
   is_active: boolean
+  is_passed: boolean // ADDED
   created_at: string
 }
 
@@ -93,13 +94,26 @@ export function StudentsList({ students }: { students: StudentWithClass[] }) {
           </thead>
           <tbody className="divide-y divide-gray-200">
             {students.map((student) => (
-              <tr key={student.id} className="hover:bg-gray-50">
+              <tr 
+                key={student.id} 
+                className={`hover:bg-gray-50 transition-colors ${
+                  student.is_passed ? 'bg-red-100 border-red-200' : ''
+                }`}
+              >
                 <td className="px-4 py-3 text-sm font-mono text-gray-600">
                   {student.admission_number}
                 </td>
                 <td className="px-4 py-3">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{student.name_with_initial}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-900">{student.name_with_initial}</p>
+                      {student.is_passed && (
+                        <Badge className="text-xs bg-red-600 text-white hover:bg-red-700">
+                          <GraduationCap className="h-3 w-3 mr-1" />
+                          Passed Out
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500">{student.full_name}</p>
                     {student.date_of_admission && (
                       <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
@@ -131,7 +145,7 @@ export function StudentsList({ students }: { students: StudentWithClass[] }) {
                       <User className="h-3 w-3" />
                       {student.father_name}
                     </p>
-                    {/* ADDED: Father Status Display */}
+                    {/* Father Status Display */}
                     {student.father_status && (
                       <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
                         {student.father_status === 'YES' ? (
