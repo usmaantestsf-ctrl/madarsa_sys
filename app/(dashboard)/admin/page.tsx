@@ -107,7 +107,7 @@ export default async function AdminDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
@@ -119,7 +119,7 @@ export default async function AdminDashboard() {
             <QuickActionButton href="/admin/timetable" label="Edit Timetable" />
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Recent Activity Placeholder */}
       <Card>

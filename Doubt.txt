@@ -1,0 +1,10 @@
+Can student promote to one department to another department?
+
+while adding student we give deparment if he promoted what will happen?
+
+while adding stduent we are not adding classes, only department?
+
+each year classes will promote nah?
+
+so each stuent can have one department?
+

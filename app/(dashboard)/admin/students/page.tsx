@@ -6,15 +6,21 @@ import { StudentsSearch } from './students-search'
 
 async function getStudents(searchQuery?: string) {
   const supabase = await createClient()
-  
+
   let query = supabase
     .from('students')
-    .select('*')
+    .select(`
+      *,
+      departments (
+        name,
+        type
+      )
+    `)
     .order('created_at', { ascending: false })
 
   if (searchQuery) {
     query = query.or(
-      `name_with_initial.ilike.%${searchQuery}%,full_name.ilike.%${searchQuery}%,admission_number.ilike.%${searchQuery}%,nic_number.ilike.%${searchQuery}%,father_name.ilike.%${searchQuery}%,district.ilike.%${searchQuery}%`
+      `name_with_initial.ilike.%${searchQuery}%,full_name.ilike.%${searchQuery}%,admission_number.ilike.%${searchQuery}%,nic_number.ilike.%${searchQuery}%,father_name.ilike.%${searchQuery}%,district.ilike.%${searchQuery}%,madrasa_grade.ilike.%${searchQuery}%`
     )
   }
 
@@ -35,32 +41,23 @@ export default async function StudentsPage({
 }) {
   const params = await searchParams
   const searchQuery = params.search
-
   const students = await getStudents(searchQuery)
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Students</h1>
-          <p className="text-gray-500 mt-1">Manage enrolled students</p>
-        </div>
-        <AddStudentDialog />
-      </div>
-
-      <StudentsSearch initialSearch={searchQuery} />
-
       <Card>
         <CardHeader>
-          <CardTitle>
-            {searchQuery 
-              ? `Search Results (${students.length})` 
-              : `All Students (${students.length})`
-            }
-          </CardTitle>
+          <CardTitle>Students Management</CardTitle>
+          <p className="text-sm text-gray-500">
+            Manage enrolled students
+          </p>
         </CardHeader>
         <CardContent>
-          <StudentsList students={students as any} />
+          <div className="flex items-center justify-between gap-4 mb-6">
+            <StudentsSearch initialSearch={searchQuery} />
+            <AddStudentDialog />
+          </div>
+          <StudentsList students={students} />
         </CardContent>
       </Card>
     </div>
