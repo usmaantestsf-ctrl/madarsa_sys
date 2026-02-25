@@ -70,6 +70,7 @@ export function DepartmentsList({ departments }: { departments: Department[] }) 
                     variant="ghost" 
                     size="sm"
                     onClick={() => handleDelete(dept.id)}
+                    disabled
                   >
                     <Trash2 className="h-4 w-4 text-red-600" />
                   </Button>

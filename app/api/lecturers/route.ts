@@ -1,3 +1,4 @@
+// app/api/lecturers/route.ts
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -12,27 +13,27 @@ export async function POST(request: Request) {
     const { data: lecturer, error: lecturerError } = await supabase
       .from('lecturer')
       .insert({
-        admission_no: lecturerData.admission_no || null,
-        admission_date: lecturerData.admission_date || null,
-        full_name: lecturerData.full_name,
-        name_with_initial: lecturerData.name_with_initial || null,
-        date_of_birth: lecturerData.date_of_birth || null,
-        nic_no: lecturerData.nic_no || null,
-        address: lecturerData.address || null,
-        district: lecturerData.district || null,
-        city: lecturerData.city || null,
-        mobile: lecturerData.mobile || null,
-        whatsapp: lecturerData.whatsapp || null,
+        admission_no:        lecturerData.admission_no        || null,
+        admission_date:      lecturerData.admission_date      || null,
+        full_name:           lecturerData.full_name,
+        name_with_initial:   lecturerData.name_with_initial   || null,
+        date_of_birth:       lecturerData.date_of_birth       || null,
+        nic_no:              lecturerData.nic_no              || null,
+        address:             lecturerData.address             || null,
+        district:            lecturerData.district            || null,
+        city:                lecturerData.city                || null,
+        mobile:              lecturerData.mobile              || null,
+        whatsapp:            lecturerData.whatsapp            || null,
         date_of_appointment: lecturerData.date_of_appointment || null,
-        age_at_appointment: lecturerData.age_at_appointment || null,
-        appointment_post: lecturerData.appointment_post || null,
-        madrasa_name: lecturerData.madrasa_name || null,
-        madrasa_address: lecturerData.madrasa_address || null,
-        passed_out_year: lecturerData.passed_out_year || null,
-        certificate_no: lecturerData.certificate_no || null,
-        other_skills: lecturerData.other_skills || null,
-        remarks: lecturerData.remarks || null,
-        signature_name: lecturerData.signature_name || null,
+        age_at_appointment:  lecturerData.age_at_appointment  || null,
+        appointment_post:    lecturerData.appointment_post    || null,
+        madrasa_name:        lecturerData.madrasa_name        || null,
+        madrasa_address:     lecturerData.madrasa_address     || null,
+        passed_out_year:     lecturerData.passed_out_year     || null,
+        certificate_no:      lecturerData.certificate_no      || null,
+        other_skills:        lecturerData.other_skills        || null,
+        remarks:             lecturerData.remarks             || null,
+        signature_name:      lecturerData.signature_name      || null,
       })
       .select()
       .single()
@@ -41,21 +42,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: lecturerError.message }, { status: 400 })
     }
 
-    // ── Step 2: Build credentials with defaults ──
-    const userEmail = email?.trim()
-      ? email.trim()
-      : `lecturer_${lecturer.lecturer_id}@madrasa.lk`
+    // ── Step 2: Build credentials ──
+    const userEmail =
+      email?.trim() ||
+      `${lecturerData.full_name.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}@madrasa.lk`
 
-    const userPassword = password?.trim() ? password.trim() : 'Lecturer@123'
+    const userPassword = password?.trim() || 'Lecturer@123'
 
     // ── Step 3: Create user row ──
     const { data: user, error: userError } = await supabase
       .from('users')
       .insert({
-        email: userEmail,
-        password: userPassword,
+        email:     userEmail,
+        password:  userPassword,
         full_name: lecturer.full_name,
-        role: 'lecturer',
+        role:      'lecturer',
         is_active: true,
       })
       .select()
@@ -81,13 +82,13 @@ export async function POST(request: Request) {
       .eq('lecturer_id', lecturer.lecturer_id)
 
     // ── Step 5: Insert qualifications ──
-    if (qualifications && qualifications.length > 0) {
+    if (qualifications?.length > 0) {
       const { error: qualError } = await supabase
         .from('lecturer_qualification')
         .insert(
           qualifications.map((q: any) => ({
-            lecturer_id: lecturer.lecturer_id,
-            degree_name: q.degree_name,
+            lecturer_id:    lecturer.lecturer_id,
+            degree_name:    q.degree_name,
             year_completed: q.year_completed || null,
             institute_name: q.institute_name || null,
           }))
@@ -96,13 +97,13 @@ export async function POST(request: Request) {
     }
 
     // ── Step 6: Insert languages ──
-    if (languages && languages.length > 0) {
+    if (languages?.length > 0) {
       const { error: langError } = await supabase
         .from('lecturer_language')
         .insert(
           languages.map((l: any) => ({
-            lecturer_id: lecturer.lecturer_id,
-            language_name: l.language_name,
+            lecturer_id:       lecturer.lecturer_id,
+            language_name:     l.language_name,
             proficiency_level: l.proficiency_level || null,
           }))
         )
@@ -122,11 +123,11 @@ export async function POST(request: Request) {
       .single()
 
     return NextResponse.json({
-      success: true,
-      data: completeLecturer,
+      success:     true,
+      data:        completeLecturer,
       lecturer_id: lecturer.lecturer_id,
       credentials: {
-        email: userEmail,
+        email:    userEmail,
         password: userPassword,
       },
       message: 'Lecturer created successfully',

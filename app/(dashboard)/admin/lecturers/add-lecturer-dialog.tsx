@@ -19,6 +19,16 @@ type LanguageInput = {
   proficiency_level: string
 }
 
+// ✅ Generates name-based email from full name
+const generateEmail = (fullName: string): string => {
+  return fullName
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')   // ← allow _ not .
+    + '@madrasa.lk'
+}
+
 export function AddLecturerDialog() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -46,7 +56,6 @@ export function AddLecturerDialog() {
     other_skills: '',
     remarks: '',
     signature_name: '',
-    // credentials
     email: '',
     password: '',
   })
@@ -68,38 +77,41 @@ export function AddLecturerDialog() {
     const validQualifications = qualifications.filter(q => q.degree_name.trim() !== '')
     const validLanguages = languages.filter(l => l.language_name.trim() !== '')
 
+    // ✅ Generate email from full_name if not provided
+    const resolvedEmail    = formData.email.trim() || generateEmail(formData.full_name)
+    const resolvedPassword = formData.password.trim() || 'Lecturer@123'
+
     const payload = {
-      admission_no: formData.admission_no || null,
-      admission_date: formData.admission_date || null,
-      full_name: formData.full_name,
-      name_with_initial: formData.name_with_initial || null,
-      date_of_birth: formData.date_of_birth || null,
-      nic_no: formData.nic_no || null,
-      address: formData.address || null,
-      district: formData.district || null,
-      city: formData.city || null,
-      mobile: formData.mobile || null,
-      whatsapp: formData.whatsapp || null,
+      admission_no:        formData.admission_no        || null,
+      admission_date:      formData.admission_date      || null,
+      full_name:           formData.full_name,
+      name_with_initial:   formData.name_with_initial   || null,
+      date_of_birth:       formData.date_of_birth       || null,
+      nic_no:              formData.nic_no              || null,
+      address:             formData.address             || null,
+      district:            formData.district            || null,
+      city:                formData.city                || null,
+      mobile:              formData.mobile              || null,
+      whatsapp:            formData.whatsapp            || null,
       date_of_appointment: formData.date_of_appointment || null,
-      age_at_appointment: formData.age_at_appointment ? parseInt(formData.age_at_appointment) : null,
-      appointment_post: formData.appointment_post || null,
-      madrasa_name: formData.madrasa_name || null,
-      madrasa_address: formData.madrasa_address || null,
-      passed_out_year: formData.passed_out_year ? parseInt(formData.passed_out_year) : null,
-      certificate_no: formData.certificate_no || null,
-      other_skills: formData.other_skills || null,
-      remarks: formData.remarks || null,
-      signature_name: formData.signature_name || null,
-      // credentials — send as-is, API will apply defaults if blank
-      email: formData.email.trim() || null,
-      password: formData.password.trim() || null,
+      age_at_appointment:  formData.age_at_appointment ? parseInt(formData.age_at_appointment) : null,
+      appointment_post:    formData.appointment_post    || null,
+      madrasa_name:        formData.madrasa_name        || null,
+      madrasa_address:     formData.madrasa_address     || null,
+      passed_out_year:     formData.passed_out_year ? parseInt(formData.passed_out_year) : null,
+      certificate_no:      formData.certificate_no      || null,
+      other_skills:        formData.other_skills        || null,
+      remarks:             formData.remarks             || null,
+      signature_name:      formData.signature_name      || null,
+      email:    resolvedEmail,     // ✅ always sends generated email, never null
+      password: resolvedPassword,  // ✅ always sends password, never null
       qualifications: validQualifications.map(q => ({
-        degree_name: q.degree_name === 'Other' ? (q.degree_name_other || '') : q.degree_name,
+        degree_name:    q.degree_name === 'Other' ? (q.degree_name_other || '') : q.degree_name,
         year_completed: q.year_completed ? parseInt(q.year_completed) : null,
         institute_name: q.institute_name || null,
       })),
       languages: validLanguages.map(l => ({
-        language_name: l.language_name === 'Other' ? (l.language_name_other || '') : l.language_name,
+        language_name:     l.language_name === 'Other' ? (l.language_name_other || '') : l.language_name,
         proficiency_level: l.proficiency_level || null,
       })),
     }
@@ -111,16 +123,13 @@ export function AddLecturerDialog() {
     })
 
     if (res.ok) {
-      const data = await res.json()
       setOpen(false)
       resetForm()
       router.refresh()
-      // Show the credentials that were used so admin can share them
-      const usedEmail = formData.email.trim() || `lecturer_${data.lecturer_id}@madrasa.lk`
-      const usedPassword = formData.password.trim() || 'Lecturer@123'
+      // ✅ Show the actual resolved credentials
       alert(
         `Lecturer created successfully!\n\n` +
-        `Login Credentials:\nEmail: ${usedEmail}\nPassword: ${usedPassword}\n\n` +
+        `Login Credentials:\nEmail: ${resolvedEmail}\nPassword: ${resolvedPassword}\n\n` +
         `Please share these securely with the lecturer.`
       )
     } else {
@@ -215,35 +224,33 @@ export function AddLecturerDialog() {
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Login Credentials</h3>
             <p className="text-xs text-gray-500">
-              Leave blank to use defaults:{' '}
-              <span className="font-mono bg-gray-100 px-1 rounded">lecturer_[id]@madrasa.lk</span>{' '}
-              and password{' '}
-              <span className="font-mono bg-gray-100 px-1 rounded">Lecturer@123</span>
+              Leave blank to auto-generate from full name:{' '}
+              <span className="font-mono bg-gray-100 px-1 rounded">
+                {formData.full_name
+                  ? generateEmail(formData.full_name)  // ✅ live preview
+                  : 'name@madrasa.lk'}
+              </span>
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                 <Input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="e.g., ahmed@madrasa.lk"
+                  placeholder={formData.full_name ? generateEmail(formData.full_name) : 'Auto-generated from name'}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Password
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
                 <div className="relative">
                   <Input
                     type={showPassword ? 'text' : 'password'}
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder="Leave blank for default"
+                    placeholder="Leave blank for Lecturer@123"
                     className="pr-10"
                   />
                   <button
@@ -271,59 +278,27 @@ export function AddLecturerDialog() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Admission Number</label>
-                <Input
-                  value={formData.admission_no}
-                  onChange={(e) => setFormData({ ...formData, admission_no: e.target.value })}
-                  placeholder="e.g., LEC2024001"
-                />
+                <Input value={formData.admission_no} onChange={(e) => setFormData({ ...formData, admission_no: e.target.value })} placeholder="e.g., LEC2024001" />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Admission Date</label>
-                <Input
-                  type="date"
-                  value={formData.admission_date}
-                  onChange={(e) => setFormData({ ...formData, admission_date: e.target.value })}
-                />
+                <Input type="date" value={formData.admission_date} onChange={(e) => setFormData({ ...formData, admission_date: e.target.value })} />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  placeholder="e.g., Ahmed Mohamed Ali"
-                  required
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name <span className="text-red-500">*</span></label>
+                <Input value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} placeholder="e.g., Ahmed Mohamed Ali" required />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name with Initial</label>
-                <Input
-                  value={formData.name_with_initial}
-                  onChange={(e) => setFormData({ ...formData, name_with_initial: e.target.value })}
-                  placeholder="e.g., A.M. Ali"
-                />
+                <Input value={formData.name_with_initial} onChange={(e) => setFormData({ ...formData, name_with_initial: e.target.value })} placeholder="e.g., A.M. Ali" />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-                <Input
-                  type="date"
-                  value={formData.date_of_birth}
-                  onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-                />
+                <Input type="date" value={formData.date_of_birth} onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })} />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">NIC Number</label>
-                <Input
-                  value={formData.nic_no}
-                  onChange={(e) => setFormData({ ...formData, nic_no: e.target.value })}
-                  placeholder="e.g., 199012345678"
-                />
+                <Input value={formData.nic_no} onChange={(e) => setFormData({ ...formData, nic_no: e.target.value })} placeholder="e.g., 199012345678" />
               </div>
             </div>
           </div>
@@ -334,48 +309,23 @@ export function AddLecturerDialog() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
-                <Input
-                  value={formData.mobile}
-                  onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
-                  placeholder="e.g., 0771234567"
-                />
+                <Input value={formData.mobile} onChange={(e) => setFormData({ ...formData, mobile: e.target.value })} placeholder="e.g., 0771234567" />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number</label>
-                <Input
-                  value={formData.whatsapp}
-                  onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                  placeholder="e.g., 0771234567"
-                />
+                <Input value={formData.whatsapp} onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })} placeholder="e.g., 0771234567" />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">District</label>
-                <Input
-                  value={formData.district}
-                  onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                  placeholder="e.g., Colombo"
-                />
+                <Input value={formData.district} onChange={(e) => setFormData({ ...formData, district: e.target.value })} placeholder="e.g., Colombo" />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                <Input
-                  value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  placeholder="e.g., Dehiwala"
-                />
+                <Input value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} placeholder="e.g., Dehiwala" />
               </div>
-
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                <textarea
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Full address"
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm min-h-[60px]"
-                />
+                <textarea value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Full address" className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm min-h-[60px]" />
               </div>
             </div>
           </div>
@@ -386,30 +336,15 @@ export function AddLecturerDialog() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date of Appointment</label>
-                <Input
-                  type="date"
-                  value={formData.date_of_appointment}
-                  onChange={(e) => setFormData({ ...formData, date_of_appointment: e.target.value })}
-                />
+                <Input type="date" value={formData.date_of_appointment} onChange={(e) => setFormData({ ...formData, date_of_appointment: e.target.value })} />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Age at Appointment</label>
-                <Input
-                  type="number"
-                  value={formData.age_at_appointment}
-                  onChange={(e) => setFormData({ ...formData, age_at_appointment: e.target.value })}
-                  placeholder="e.g., 25"
-                />
+                <Input type="number" value={formData.age_at_appointment} onChange={(e) => setFormData({ ...formData, age_at_appointment: e.target.value })} placeholder="e.g., 25" />
               </div>
-
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Appointment Post</label>
-                <Input
-                  value={formData.appointment_post}
-                  onChange={(e) => setFormData({ ...formData, appointment_post: e.target.value })}
-                  placeholder="e.g., Senior Lecturer"
-                />
+                <Input value={formData.appointment_post} onChange={(e) => setFormData({ ...formData, appointment_post: e.target.value })} placeholder="e.g., Senior Lecturer" />
               </div>
             </div>
           </div>
@@ -420,40 +355,19 @@ export function AddLecturerDialog() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Madrasa Name</label>
-                <Input
-                  value={formData.madrasa_name}
-                  onChange={(e) => setFormData({ ...formData, madrasa_name: e.target.value })}
-                  placeholder="e.g., Jamia Madrasa"
-                />
+                <Input value={formData.madrasa_name} onChange={(e) => setFormData({ ...formData, madrasa_name: e.target.value })} placeholder="e.g., Jamia Madrasa" />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Passed Out Year</label>
-                <Input
-                  type="number"
-                  value={formData.passed_out_year}
-                  onChange={(e) => setFormData({ ...formData, passed_out_year: e.target.value })}
-                  placeholder="e.g., 2020"
-                />
+                <Input type="number" value={formData.passed_out_year} onChange={(e) => setFormData({ ...formData, passed_out_year: e.target.value })} placeholder="e.g., 2020" />
               </div>
-
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Madrasa Address</label>
-                <textarea
-                  value={formData.madrasa_address}
-                  onChange={(e) => setFormData({ ...formData, madrasa_address: e.target.value })}
-                  placeholder="Madrasa full address"
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm min-h-[60px]"
-                />
+                <textarea value={formData.madrasa_address} onChange={(e) => setFormData({ ...formData, madrasa_address: e.target.value })} placeholder="Madrasa full address" className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm min-h-[60px]" />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Certificate Number</label>
-                <Input
-                  value={formData.certificate_no}
-                  onChange={(e) => setFormData({ ...formData, certificate_no: e.target.value })}
-                  placeholder="e.g., CERT-2020-001"
-                />
+                <Input value={formData.certificate_no} onChange={(e) => setFormData({ ...formData, certificate_no: e.target.value })} placeholder="e.g., CERT-2020-001" />
               </div>
             </div>
           </div>
@@ -466,7 +380,6 @@ export function AddLecturerDialog() {
                 <Plus className="h-4 w-4 mr-1" /> Add
               </Button>
             </div>
-
             {qualifications.map((qual, index) => (
               <div key={index} className="border rounded-lg p-4 space-y-3 bg-gray-50">
                 <div className="flex items-center justify-between">
@@ -477,16 +390,11 @@ export function AddLecturerDialog() {
                     </Button>
                   )}
                 </div>
-
                 <div className="grid grid-cols-1 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Degree Name</label>
                     <select
-                      value={
-                        qual.degree_name === 'Other' || (qual.degree_name_other && qual.degree_name_other.length > 0)
-                          ? 'Other'
-                          : qual.degree_name
-                      }
+                      value={qual.degree_name === 'Other' || qual.degree_name_other ? 'Other' : qual.degree_name}
                       onChange={(e) => {
                         if (e.target.value === 'Other') {
                           updateQualification(index, 'degree_name', 'Other')
@@ -507,35 +415,20 @@ export function AddLecturerDialog() {
                       <option value="Other">Other (Dip / B.A / M.A / Ph.D)</option>
                     </select>
                   </div>
-
                   {qual.degree_name === 'Other' && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Specify Degree</label>
-                      <Input
-                        value={qual.degree_name_other || ''}
-                        onChange={(e) => updateQualification(index, 'degree_name_other', e.target.value)}
-                        placeholder="e.g., B.A in Islamic Studies"
-                      />
+                      <Input value={qual.degree_name_other || ''} onChange={(e) => updateQualification(index, 'degree_name_other', e.target.value)} placeholder="e.g., B.A in Islamic Studies" />
                     </div>
                   )}
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                      <Input
-                        type="number"
-                        value={qual.year_completed}
-                        onChange={(e) => updateQualification(index, 'year_completed', e.target.value)}
-                        placeholder="e.g., 2020"
-                      />
+                      <Input type="number" value={qual.year_completed} onChange={(e) => updateQualification(index, 'year_completed', e.target.value)} placeholder="e.g., 2020" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Institute</label>
-                      <Input
-                        value={qual.institute_name}
-                        onChange={(e) => updateQualification(index, 'institute_name', e.target.value)}
-                        placeholder="e.g., Jamia Madrasa"
-                      />
+                      <Input value={qual.institute_name} onChange={(e) => updateQualification(index, 'institute_name', e.target.value)} placeholder="e.g., Jamia Madrasa" />
                     </div>
                   </div>
                 </div>
@@ -551,7 +444,6 @@ export function AddLecturerDialog() {
                 <Plus className="h-4 w-4 mr-1" /> Add
               </Button>
             </div>
-
             {languages.map((lang, index) => (
               <div key={index} className="border rounded-lg p-4 space-y-3 bg-gray-50">
                 <div className="flex items-center justify-between">
@@ -562,16 +454,11 @@ export function AddLecturerDialog() {
                     </Button>
                   )}
                 </div>
-
                 <div className="grid grid-cols-1 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Language</label>
                     <select
-                      value={
-                        lang.language_name === 'Other' || (lang.language_name_other && lang.language_name_other.length > 0)
-                          ? 'Other'
-                          : lang.language_name
-                      }
+                      value={lang.language_name === 'Other' || lang.language_name_other ? 'Other' : lang.language_name}
                       onChange={(e) => {
                         if (e.target.value === 'Other') {
                           updateLanguage(index, 'language_name', 'Other')
@@ -592,25 +479,15 @@ export function AddLecturerDialog() {
                       <option value="Other">Other</option>
                     </select>
                   </div>
-
                   {lang.language_name === 'Other' && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Specify Language</label>
-                      <Input
-                        value={lang.language_name_other || ''}
-                        onChange={(e) => updateLanguage(index, 'language_name_other', e.target.value)}
-                        placeholder="e.g., Malayalam, Hindi"
-                      />
+                      <Input value={lang.language_name_other || ''} onChange={(e) => updateLanguage(index, 'language_name_other', e.target.value)} placeholder="e.g., Malayalam, Hindi" />
                     </div>
                   )}
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Proficiency</label>
-                    <select
-                      value={lang.proficiency_level}
-                      onChange={(e) => updateLanguage(index, 'proficiency_level', e.target.value)}
-                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                    >
+                    <select value={lang.proficiency_level} onChange={(e) => updateLanguage(index, 'proficiency_level', e.target.value)} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
                       <option value="">Select level</option>
                       <option value="Beginner">Beginner</option>
                       <option value="Intermediate">Intermediate</option>
@@ -629,31 +506,15 @@ export function AddLecturerDialog() {
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Other Skills</label>
-                <textarea
-                  value={formData.other_skills}
-                  onChange={(e) => setFormData({ ...formData, other_skills: e.target.value })}
-                  placeholder="List any other skills or certifications"
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm min-h-[60px]"
-                />
+                <textarea value={formData.other_skills} onChange={(e) => setFormData({ ...formData, other_skills: e.target.value })} placeholder="List any other skills or certifications" className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm min-h-[60px]" />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
-                <textarea
-                  value={formData.remarks}
-                  onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                  placeholder="Any additional notes or remarks"
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm min-h-[60px]"
-                />
+                <textarea value={formData.remarks} onChange={(e) => setFormData({ ...formData, remarks: e.target.value })} placeholder="Any additional notes or remarks" className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm min-h-[60px]" />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Signature Name</label>
-                <Input
-                  value={formData.signature_name}
-                  onChange={(e) => setFormData({ ...formData, signature_name: e.target.value })}
-                  placeholder="Name for official signatures"
-                />
+                <Input value={formData.signature_name} onChange={(e) => setFormData({ ...formData, signature_name: e.target.value })} placeholder="Name for official signatures" />
               </div>
             </div>
           </div>
