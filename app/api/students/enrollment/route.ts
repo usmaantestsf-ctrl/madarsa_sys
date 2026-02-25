@@ -1,12 +1,16 @@
+// app/api/students/enrollment/route.ts
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: Request) {
   try {
-    const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')  // called as /api/students/enrollment?id=xxx
+
+    if (!id) {
+      return NextResponse.json(null)
+    }
+
     const supabase = await createClient()
 
     const { data, error } = await supabase
@@ -17,7 +21,7 @@ export async function GET(
       .single()
 
     if (error) {
-      return NextResponse.json(null)  // no enrollment yet — not an error
+      return NextResponse.json(null)
     }
 
     return NextResponse.json(data)
