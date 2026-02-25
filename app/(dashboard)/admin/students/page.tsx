@@ -1,10 +1,12 @@
+// app/(dashboard)/admin/students/page.tsx
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StudentsList } from './students-list'
 import { AddStudentDialog } from './add-student-dialog'
 import { StudentsSearch } from './students-search'
 import { PromoteStudentsDialog } from './promote-students-dialog'
-import { PassedStudentsList } from './passed-students-list' // ✅ NEW
+import { PassedStudentsList } from './passed-students-list'
+import { StudentsFilterPanel } from './students-filter-panel'
 import Link from 'next/link'
 import { GraduationCap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -65,6 +67,16 @@ async function getEnrollmentSummary() {
   return { currentYear, totalActive: data.length }
 }
 
+async function getDepartments() {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('departments')
+    .select('id, name, type')
+    .eq('is_active', true)
+    .order('name')
+  return data || []
+}
+
 export default async function StudentsPage({
   searchParams,
 }: {
@@ -72,36 +84,19 @@ export default async function StudentsPage({
 }) {
   const params = await searchParams
   const searchQuery = params.search
-  const view = params.view || 'active'  // ✅ 'active' | 'passed'
+  const view = params.view || 'active'
 
-  const [students, passedStudents, enrollmentSummary] = await Promise.all([
+  const [students, passedStudents, enrollmentSummary, departments] = await Promise.all([
     getStudents(searchQuery),
     getPassedStudents(),
     getEnrollmentSummary(),
+    getDepartments(),
   ])
 
-  const totalStudents = students.length
-  const activeStudents = students.filter(s => s.is_active).length
   const passedCount = passedStudents.length
 
   return (
     <div className="space-y-6">
-
-      {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg border p-4">
-          <p className="text-sm text-gray-500">Total Students</p>
-          <p className="text-2xl font-bold text-gray-900">{totalStudents}</p>
-        </div>
-        <div className="bg-white rounded-lg border p-4">
-          <p className="text-sm text-gray-500">Active Students</p>
-          <p className="text-2xl font-bold text-green-600">{activeStudents}</p>
-        </div>
-        <div className="bg-white rounded-lg border p-4">
-          <p className="text-sm text-gray-500">Passed Out</p>
-          <p className="text-2xl font-bold text-blue-600">{passedCount}</p>
-        </div>
-      </div>
 
       <Card>
         <CardHeader>
@@ -117,7 +112,6 @@ export default async function StudentsPage({
                   totalActive={enrollmentSummary.totalActive}
                 />
               )}
-              {/* ✅ Toggle between Active and Passed Students */}
               {view === 'active' ? (
                 <Link href="?view=passed">
                   <Button variant="outline" className="border-blue-300 text-blue-600 hover:bg-blue-50">
@@ -137,17 +131,15 @@ export default async function StudentsPage({
         </CardHeader>
         <CardContent>
           {view === 'passed' ? (
-            // ✅ Passed Students View
             <PassedStudentsList passedStudents={passedStudents} />
           ) : (
-            // ✅ Active Students View
-            <>
-              <div className="flex items-center justify-between gap-4 mb-6">
-                <StudentsSearch initialSearch={searchQuery} />
-                <AddStudentDialog />
-              </div>
-              <StudentsList students={students} />
-            </>
+            // ✅ Pass all students + departments to the filter panel
+            // Filter panel handles KPIs, filters, search, and table
+            <StudentsFilterPanel
+              students={students}
+              departments={departments}
+              searchQuery={searchQuery}
+            />
           )}
         </CardContent>
       </Card>

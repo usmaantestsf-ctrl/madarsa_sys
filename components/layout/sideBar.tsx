@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils'
 
 const adminMenuItems = [
   { href: '/admin',             label: 'Dashboard',         icon: LayoutDashboard },
-  { href: '/admin/calendar',    label: 'Islamic Calendar',  icon: Moon },          // ✅ fixed
+  // { href: '/admin/calendar',    label: 'Islamic Calendar',  icon: Moon },          
   { href: '/admin/departments', label: 'Departments',       icon: Building2 },
   { href: '/admin/classes',     label: 'Classes',           icon: GraduationCap },
   { href: '/admin/subjects',    label: 'Subjects',          icon: BookOpen },
