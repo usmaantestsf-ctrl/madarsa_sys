@@ -1,15 +1,14 @@
-// app/api/lecturers/route.ts
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { qualifications, languages, ...lecturerData } = body
+    const { qualifications, languages, email, password, ...lecturerData } = body
 
     const supabase = await createClient()
 
-    // Step 1: Create lecturer
+    // ── Step 1: Insert lecturer ──
     const { data: lecturer, error: lecturerError } = await supabase
       .from('lecturer')
       .insert({
@@ -42,48 +41,82 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: lecturerError.message }, { status: 400 })
     }
 
-    // Step 2: Create qualifications if provided
-    if (qualifications && qualifications.length > 0) {
-      const qualificationsToInsert = qualifications.map((q: any) => ({
-        lecturer_id: lecturer.lecturer_id,
-        degree_name: q.degree_name,
-        year_completed: q.year_completed || null,
-        institute_name: q.institute_name || null,
-      }))
+    // ── Step 2: Build credentials with defaults ──
+    const userEmail = email?.trim()
+      ? email.trim()
+      : `lecturer_${lecturer.lecturer_id}@madrasa.lk`
 
+    const userPassword = password?.trim() ? password.trim() : 'Lecturer@123'
+
+    // ── Step 3: Create user row ──
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .insert({
+        email: userEmail,
+        password: userPassword,
+        full_name: lecturer.full_name,
+        role: 'lecturer',
+        is_active: true,
+      })
+      .select()
+      .single()
+
+    if (userError) {
+      // Rollback: remove the lecturer we just created
+      await supabase
+        .from('lecturer')
+        .delete()
+        .eq('lecturer_id', lecturer.lecturer_id)
+
+      return NextResponse.json(
+        { error: `User creation failed: ${userError.message}` },
+        { status: 400 }
+      )
+    }
+
+    // ── Step 4: Link user_id back to lecturer ──
+    await supabase
+      .from('lecturer')
+      .update({ user_id: user.id })
+      .eq('lecturer_id', lecturer.lecturer_id)
+
+    // ── Step 5: Insert qualifications ──
+    if (qualifications && qualifications.length > 0) {
       const { error: qualError } = await supabase
         .from('lecturer_qualification')
-        .insert(qualificationsToInsert)
-
-      if (qualError) {
-        console.error('Failed to insert qualifications:', qualError)
-      }
+        .insert(
+          qualifications.map((q: any) => ({
+            lecturer_id: lecturer.lecturer_id,
+            degree_name: q.degree_name,
+            year_completed: q.year_completed || null,
+            institute_name: q.institute_name || null,
+          }))
+        )
+      if (qualError) console.error('Failed to insert qualifications:', qualError)
     }
 
-    // Step 3: Create languages if provided
+    // ── Step 6: Insert languages ──
     if (languages && languages.length > 0) {
-      const languagesToInsert = languages.map((l: any) => ({
-        lecturer_id: lecturer.lecturer_id,
-        language_name: l.language_name,
-        proficiency_level: l.proficiency_level || null,
-      }))
-
       const { error: langError } = await supabase
         .from('lecturer_language')
-        .insert(languagesToInsert)
-
-      if (langError) {
-        console.error('Failed to insert languages:', langError)
-      }
+        .insert(
+          languages.map((l: any) => ({
+            lecturer_id: lecturer.lecturer_id,
+            language_name: l.language_name,
+            proficiency_level: l.proficiency_level || null,
+          }))
+        )
+      if (langError) console.error('Failed to insert languages:', langError)
     }
 
-    // Fetch complete lecturer data with relations
+    // ── Step 7: Return complete data ──
     const { data: completeLecturer } = await supabase
       .from('lecturer')
       .select(`
         *,
         qualifications:lecturer_qualification(*),
-        languages:lecturer_language(*)
+        languages:lecturer_language(*),
+        user:users(id, email, is_active)
       `)
       .eq('lecturer_id', lecturer.lecturer_id)
       .single()
@@ -91,7 +124,12 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       data: completeLecturer,
-      message: 'Lecturer created successfully'
+      lecturer_id: lecturer.lecturer_id,
+      credentials: {
+        email: userEmail,
+        password: userPassword,
+      },
+      message: 'Lecturer created successfully',
     })
   } catch (error: any) {
     return NextResponse.json(
@@ -110,7 +148,8 @@ export async function GET() {
       .select(`
         *,
         qualifications:lecturer_qualification(*),
-        languages:lecturer_language(*)
+        languages:lecturer_language(*),
+        user:users(id, email, is_active)
       `)
       .order('record_created_at', { ascending: false })
 

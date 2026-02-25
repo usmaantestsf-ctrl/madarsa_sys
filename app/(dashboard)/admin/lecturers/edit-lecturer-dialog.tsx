@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { X, Plus, Trash2 } from 'lucide-react'
+import { X, Plus, Trash2, Eye, EyeOff } from 'lucide-react'
 import { Lecturer, LecturerQualification, LecturerLanguage } from '@/lib/types'
 
 type QualificationInput = {
@@ -24,10 +24,17 @@ export function EditLecturerDialog({
   lecturer,
   onClose,
 }: {
-  lecturer: Lecturer
+  lecturer: Lecturer & { user?: { email: string } }
   onClose: () => void
 }) {
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+
+  const [credentials, setCredentials] = useState({
+    email: lecturer.user?.email || '',
+    password: '', // blank — only sent if admin types a new one
+  })
+
   const [formData, setFormData] = useState({
     admission_no: lecturer.admission_no || '',
     admission_date: lecturer.admission_date || '',
@@ -52,19 +59,17 @@ export function EditLecturerDialog({
     signature_name: lecturer.signature_name || '',
   })
 
-  // Helper function to check if degree is a predefined one
   const isPredefinedDegree = (degreeName: string) => {
     const predefinedDegrees = [
       'Dhawra Al-Hadhith',
       'Dhawra Al-Fiqh',
       'Dhawra Al-Thafseer',
       'Al-Iftha',
-      'Al-Ijaza (Qur\'an)'
+      "Al-Ijaza (Qur'an)",
     ]
     return predefinedDegrees.includes(degreeName)
   }
 
-  // Helper function to check if language is a predefined one
   const isPredefinedLanguage = (languageName: string) => {
     const predefinedLanguages = ['Arabic', 'Urdu', 'English', 'Tamil', 'Sinhala']
     return predefinedLanguages.includes(languageName)
@@ -94,9 +99,9 @@ export function EditLecturerDialog({
     setLoading(true)
 
     const payload = {
-      ...formData,
       admission_no: formData.admission_no || null,
       admission_date: formData.admission_date || null,
+      full_name: formData.full_name,
       name_with_initial: formData.name_with_initial || null,
       date_of_birth: formData.date_of_birth || null,
       nic_no: formData.nic_no || null,
@@ -106,26 +111,42 @@ export function EditLecturerDialog({
       mobile: formData.mobile || null,
       whatsapp: formData.whatsapp || null,
       date_of_appointment: formData.date_of_appointment || null,
-      age_at_appointment: formData.age_at_appointment ? parseInt(formData.age_at_appointment as string) : null,
+      age_at_appointment: formData.age_at_appointment
+        ? parseInt(formData.age_at_appointment as string)
+        : null,
       appointment_post: formData.appointment_post || null,
       madrasa_name: formData.madrasa_name || null,
       madrasa_address: formData.madrasa_address || null,
-      passed_out_year: formData.passed_out_year ? parseInt(formData.passed_out_year as string) : null,
+      passed_out_year: formData.passed_out_year
+        ? parseInt(formData.passed_out_year as string)
+        : null,
       certificate_no: formData.certificate_no || null,
       other_skills: formData.other_skills || null,
       remarks: formData.remarks || null,
       signature_name: formData.signature_name || null,
+      // Only send credentials fields if they have values
+      email: credentials.email.trim() || null,
+      password: credentials.password.trim() || null, // null = don't change
       qualifications: qualifications
-        .filter(q => q.degree_name.trim() !== '' || (q.degree_name_other && q.degree_name_other.trim() !== ''))
+        .filter(
+          q =>
+            q.degree_name.trim() !== '' ||
+            (q.degree_name_other && q.degree_name_other.trim() !== '')
+        )
         .map(q => ({
           degree_name: q.degree_name === 'Other' ? (q.degree_name_other || '') : q.degree_name,
           year_completed: q.year_completed,
           institute_name: q.institute_name,
         })),
       languages: languages
-        .filter(l => l.language_name.trim() !== '' || (l.language_name_other && l.language_name_other.trim() !== ''))
+        .filter(
+          l =>
+            l.language_name.trim() !== '' ||
+            (l.language_name_other && l.language_name_other.trim() !== '')
+        )
         .map(l => ({
-          language_name: l.language_name === 'Other' ? (l.language_name_other || '') : l.language_name,
+          language_name:
+            l.language_name === 'Other' ? (l.language_name_other || '') : l.language_name,
           proficiency_level: l.proficiency_level,
         })),
     }
@@ -186,15 +207,53 @@ export function EditLecturerDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information Section */}
+
+          {/* ── Login Credentials ── */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Basic Information</h3>
-            
+            <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Login Credentials</h3>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <Input
+                  type="email"
+                  value={credentials.email}
+                  onChange={(e) => setCredentials({ ...credentials, email: e.target.value })}
+                  placeholder="lecturer@madrasa.lk"
+                />
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Admission Number
+                  New Password{' '}
+                  <span className="text-gray-400 text-xs font-normal">(leave blank to keep current)</span>
                 </label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    value={credentials.password}
+                    onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+                    placeholder="Enter new password to change"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Basic Information ── */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Basic Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Admission Number</label>
                 <Input
                   value={formData.admission_no}
                   onChange={(e) => setFormData({ ...formData, admission_no: e.target.value })}
@@ -202,9 +261,7 @@ export function EditLecturerDialog({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Admission Date
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Admission Date</label>
                 <Input
                   type="date"
                   value={formData.admission_date}
@@ -224,9 +281,7 @@ export function EditLecturerDialog({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name with Initial
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name with Initial</label>
                 <Input
                   value={formData.name_with_initial}
                   onChange={(e) => setFormData({ ...formData, name_with_initial: e.target.value })}
@@ -234,9 +289,7 @@ export function EditLecturerDialog({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date of Birth
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
                 <Input
                   type="date"
                   value={formData.date_of_birth}
@@ -245,9 +298,7 @@ export function EditLecturerDialog({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  NIC Number
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">NIC Number</label>
                 <Input
                   value={formData.nic_no}
                   onChange={(e) => setFormData({ ...formData, nic_no: e.target.value })}
@@ -256,15 +307,12 @@ export function EditLecturerDialog({
             </div>
           </div>
 
-          {/* Contact Information Section */}
+          {/* ── Contact Information ── */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Contact Information</h3>
-            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mobile Number
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
                 <Input
                   value={formData.mobile}
                   onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
@@ -272,9 +320,7 @@ export function EditLecturerDialog({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  WhatsApp Number
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number</label>
                 <Input
                   value={formData.whatsapp}
                   onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
@@ -282,9 +328,7 @@ export function EditLecturerDialog({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  District
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">District</label>
                 <Input
                   value={formData.district}
                   onChange={(e) => setFormData({ ...formData, district: e.target.value })}
@@ -292,9 +336,7 @@ export function EditLecturerDialog({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  City
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
                 <Input
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
@@ -302,9 +344,7 @@ export function EditLecturerDialog({
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
                 <textarea
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
@@ -314,15 +354,12 @@ export function EditLecturerDialog({
             </div>
           </div>
 
-          {/* Appointment Information Section */}
+          {/* ── Appointment Details ── */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Appointment Details</h3>
-            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date of Appointment
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date of Appointment</label>
                 <Input
                   type="date"
                   value={formData.date_of_appointment}
@@ -331,9 +368,7 @@ export function EditLecturerDialog({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Age at Appointment
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Age at Appointment</label>
                 <Input
                   type="number"
                   value={formData.age_at_appointment}
@@ -342,9 +377,7 @@ export function EditLecturerDialog({
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Appointment Post
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Appointment Post</label>
                 <Input
                   value={formData.appointment_post}
                   onChange={(e) => setFormData({ ...formData, appointment_post: e.target.value })}
@@ -353,15 +386,12 @@ export function EditLecturerDialog({
             </div>
           </div>
 
-          {/* Madrasa Information Section */}
+          {/* ── Madrasa Information ── */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Madrasa Information</h3>
-            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Madrasa Name
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Madrasa Name</label>
                 <Input
                   value={formData.madrasa_name}
                   onChange={(e) => setFormData({ ...formData, madrasa_name: e.target.value })}
@@ -369,9 +399,7 @@ export function EditLecturerDialog({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Passed Out Year
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Passed Out Year</label>
                 <Input
                   type="number"
                   value={formData.passed_out_year}
@@ -380,9 +408,7 @@ export function EditLecturerDialog({
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Madrasa Address
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Madrasa Address</label>
                 <textarea
                   value={formData.madrasa_address}
                   onChange={(e) => setFormData({ ...formData, madrasa_address: e.target.value })}
@@ -391,9 +417,7 @@ export function EditLecturerDialog({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Certificate Number
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Certificate Number</label>
                 <Input
                   value={formData.certificate_no}
                   onChange={(e) => setFormData({ ...formData, certificate_no: e.target.value })}
@@ -402,7 +426,7 @@ export function EditLecturerDialog({
             </div>
           </div>
 
-          {/* Qualifications Section */}
+          {/* ── Qualifications ── */}
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b pb-2">
               <h3 className="text-lg font-medium text-gray-900">Qualifications</h3>
@@ -410,37 +434,34 @@ export function EditLecturerDialog({
                 <Plus className="h-4 w-4 mr-1" /> Add Qualification
               </Button>
             </div>
-            
+
             {qualifications.map((qual, index) => (
               <div key={index} className="border rounded-lg p-4 space-y-3 bg-gray-50">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">Qualification #{index + 1}</span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => removeQualification(index)}
-                  >
+                  <Button type="button" size="sm" variant="ghost" onClick={() => removeQualification(index)}>
                     <Trash2 className="h-4 w-4 text-red-600" />
                   </Button>
                 </div>
-                
+
                 <div className="grid grid-cols-1 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Degree Name
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Degree Name</label>
                     <select
-                      value={qual.degree_name === 'Other' || (qual.degree_name_other && qual.degree_name_other.length > 0) ? 'Other' : qual.degree_name}
+                      value={
+                        qual.degree_name === 'Other' || (qual.degree_name_other && qual.degree_name_other.length > 0)
+                          ? 'Other'
+                          : qual.degree_name
+                      }
                       onChange={(e) => {
                         if (e.target.value === 'Other') {
                           updateQualification(index, 'degree_name', 'Other')
                         } else {
                           const updated = [...qualifications]
-                          updated[index] = { 
-                            ...updated[index], 
+                          updated[index] = {
+                            ...updated[index],
                             degree_name: e.target.value,
-                            degree_name_other: undefined 
+                            degree_name_other: undefined,
                           }
                           setQualifications(updated)
                         }
@@ -456,12 +477,10 @@ export function EditLecturerDialog({
                       <option value="Other">Other (Dip / B.A / M.A / Ph.D)</option>
                     </select>
                   </div>
-                  
+
                   {qual.degree_name === 'Other' && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Specify Degree
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Specify Degree</label>
                       <Input
                         value={qual.degree_name_other || ''}
                         onChange={(e) => updateQualification(index, 'degree_name_other', e.target.value)}
@@ -469,24 +488,21 @@ export function EditLecturerDialog({
                       />
                     </div>
                   )}
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Year Completed
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Year Completed</label>
                       <Input
                         type="number"
                         value={qual.year_completed || ''}
-                        onChange={(e) => updateQualification(index, 'year_completed', e.target.value ? parseInt(e.target.value) : null)}
+                        onChange={(e) =>
+                          updateQualification(index, 'year_completed', e.target.value ? parseInt(e.target.value) : null)
+                        }
                         placeholder="e.g., 2020"
                       />
                     </div>
-                    
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Institute Name
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Institute Name</label>
                       <Input
                         value={qual.institute_name || ''}
                         onChange={(e) => updateQualification(index, 'institute_name', e.target.value)}
@@ -499,7 +515,7 @@ export function EditLecturerDialog({
             ))}
           </div>
 
-          {/* Languages Section */}
+          {/* ── Languages ── */}
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b pb-2">
               <h3 className="text-lg font-medium text-gray-900">Languages</h3>
@@ -507,37 +523,34 @@ export function EditLecturerDialog({
                 <Plus className="h-4 w-4 mr-1" /> Add Language
               </Button>
             </div>
-            
+
             {languages.map((lang, index) => (
               <div key={index} className="border rounded-lg p-4 space-y-3 bg-gray-50">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">Language #{index + 1}</span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => removeLanguage(index)}
-                  >
+                  <Button type="button" size="sm" variant="ghost" onClick={() => removeLanguage(index)}>
                     <Trash2 className="h-4 w-4 text-red-600" />
                   </Button>
                 </div>
-                
+
                 <div className="grid grid-cols-1 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Language
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Language</label>
                     <select
-                      value={lang.language_name === 'Other' || (lang.language_name_other && lang.language_name_other.length > 0) ? 'Other' : lang.language_name}
+                      value={
+                        lang.language_name === 'Other' || (lang.language_name_other && lang.language_name_other.length > 0)
+                          ? 'Other'
+                          : lang.language_name
+                      }
                       onChange={(e) => {
                         if (e.target.value === 'Other') {
                           updateLanguage(index, 'language_name', 'Other')
                         } else {
                           const updated = [...languages]
-                          updated[index] = { 
-                            ...updated[index], 
+                          updated[index] = {
+                            ...updated[index],
                             language_name: e.target.value,
-                            language_name_other: undefined 
+                            language_name_other: undefined,
                           }
                           setLanguages(updated)
                         }
@@ -553,12 +566,10 @@ export function EditLecturerDialog({
                       <option value="Other">Other</option>
                     </select>
                   </div>
-                  
+
                   {lang.language_name === 'Other' && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Specify Language
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Specify Language</label>
                       <Input
                         value={lang.language_name_other || ''}
                         onChange={(e) => updateLanguage(index, 'language_name_other', e.target.value)}
@@ -566,11 +577,9 @@ export function EditLecturerDialog({
                       />
                     </div>
                   )}
-                  
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Proficiency Level
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Proficiency Level</label>
                     <select
                       value={lang.proficiency_level || ''}
                       onChange={(e) => updateLanguage(index, 'proficiency_level', e.target.value || null)}
@@ -588,15 +597,12 @@ export function EditLecturerDialog({
             ))}
           </div>
 
-          {/* Additional Information Section */}
+          {/* ── Additional Information ── */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Additional Information</h3>
-            
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Other Skills
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Other Skills</label>
                 <textarea
                   value={formData.other_skills}
                   onChange={(e) => setFormData({ ...formData, other_skills: e.target.value })}
@@ -606,9 +612,7 @@ export function EditLecturerDialog({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Remarks
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
                 <textarea
                   value={formData.remarks}
                   onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
@@ -618,9 +622,7 @@ export function EditLecturerDialog({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Signature Name
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Signature Name</label>
                 <Input
                   value={formData.signature_name}
                   onChange={(e) => setFormData({ ...formData, signature_name: e.target.value })}
@@ -630,7 +632,7 @@ export function EditLecturerDialog({
             </div>
           </div>
 
-          {/* Action Buttons */}
+          {/* ── Submit ── */}
           <div className="flex gap-2 pt-4 sticky bottom-0 bg-white border-t mt-6">
             <Button type="submit" disabled={loading} className="flex-1">
               {loading ? 'Updating...' : 'Update Lecturer'}
