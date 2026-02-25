@@ -21,17 +21,14 @@ function toHijri(date: Date): { year: number; month: number; day: number } {
   }
 }
 
-// Convert Hijri year/month/day back to a Gregorian Date (approx via iteration)
 function hijriToGregorian(hYear: number, hMonth: number, hDay: number): Date {
-  // Approximate starting point: Hijri year * 354.367 days from epoch
-  const approxMs = (hYear - 1) * 354.367 * 86400000 + 
+  const approxMs = (hYear - 1) * 354.367 * 86400000 +
                    (hMonth - 1) * 29.53 * 86400000 +
                    (hDay - 1) * 86400000 +
                    new Date('0622-07-16').getTime()
-  
+
   let date = new Date(approxMs)
-  
-  // Iterate to find exact match (converges in 1-3 steps)
+
   for (let i = 0; i < 5; i++) {
     const h = toHijri(date)
     const diff = (hYear - h.year) * 354 + (hMonth - h.month) * 29 + (hDay - h.day)
@@ -51,26 +48,15 @@ function getDaysInHijriMonth(hYear: number, hMonth: number): number {
 
 function getFirstDayOfHijriMonth(hYear: number, hMonth: number): number {
   const date = hijriToGregorian(hYear, hMonth, 1)
-  // 0=Sun,1=Mon,...,6=Sat — we want Sat as first day for Islamic week? 
-  // Using Sunday start for simplicity
   return date.getDay()
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const HIJRI_MONTHS = [
-  'Muharram',    // 1
-  'Safar',       // 2
-  'Rabi al-Awwal',   // 3
-  'Rabi al-Thani',   // 4
-  'Jumada al-Awwal', // 5
-  'Jumada al-Thani', // 6
-  'Rajab',       // 7
-  'Sha\'ban',    // 8
-  'Ramadan',     // 9
-  'Shawwal',     // 10
-  'Dhul Qi\'dah',// 11
-  'Dhul Hijjah', // 12
+  'Muharram', 'Safar', 'Rabi al-Awwal', 'Rabi al-Thani',
+  'Jumada al-Awwal', 'Jumada al-Thani', 'Rajab', "Sha'ban",
+  'Ramadan', 'Shawwal', "Dhul Qi'dah", 'Dhul Hijjah',
 ]
 
 const ARABIC_MONTHS = [
@@ -81,12 +67,11 @@ const ARABIC_MONTHS = [
 
 const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-// Important Islamic dates (Hijri month/day → label)
 const ISLAMIC_EVENTS: Record<string, string> = {
   '1-1':  'Islamic New Year',
   '1-10': 'Ashura',
   '3-12': 'Mawlid al-Nabi',
-  '7-27': 'Isra and Mi\'raj',
+  '7-27': "Isra and Mi'raj",
   '9-1':  'Ramadan Begins',
   '9-27': 'Laylat al-Qadr',
   '10-1': 'Eid al-Fitr',
@@ -101,13 +86,13 @@ export function HijriCalendar() {
   const today = new Date()
   const todayHijri = toHijri(today)
 
-  const [currentYear, setCurrentYear]   = useState(todayHijri.year)
+  const [currentYear,  setCurrentYear]  = useState(todayHijri.year)
   const [currentMonth, setCurrentMonth] = useState(todayHijri.month)
-  const [selectedDay, setSelectedDay]   = useState<number | null>(todayHijri.day)
+  const [selectedDay,  setSelectedDay]  = useState<number | null>(todayHijri.day)
   const [showYearPicker, setShowYearPicker] = useState(false)
 
-  const daysInMonth   = useMemo(() => getDaysInHijriMonth(currentYear, currentMonth), [currentYear, currentMonth])
-  const firstWeekDay  = useMemo(() => getFirstDayOfHijriMonth(currentYear, currentMonth), [currentYear, currentMonth])
+  const daysInMonth  = useMemo(() => getDaysInHijriMonth(currentYear, currentMonth),  [currentYear, currentMonth])
+  const firstWeekDay = useMemo(() => getFirstDayOfHijriMonth(currentYear, currentMonth), [currentYear, currentMonth])
 
   const goToPrevMonth = () => {
     if (currentMonth === 1) { setCurrentMonth(12); setCurrentYear(y => y - 1) }
@@ -133,22 +118,13 @@ export function HijriCalendar() {
     currentMonth === todayHijri.month &&
     currentYear === todayHijri.year
 
-  const getEventForDay = (day: number) =>
-    ISLAMIC_EVENTS[`${currentMonth}-${day}`]
+  const getEventForDay  = (day: number) => ISLAMIC_EVENTS[`${currentMonth}-${day}`]
+  const getGregorianForDay = (day: number) => hijriToGregorian(currentYear, currentMonth, day)
 
-  // Gregorian date for a given Hijri day in current view
-  const getGregorianForDay = (day: number) =>
-    hijriToGregorian(currentYear, currentMonth, day)
-
-  // Selected day info
   const selectedInfo = selectedDay
-    ? {
-        gregorian: getGregorianForDay(selectedDay),
-        event:     getEventForDay(selectedDay),
-      }
+    ? { gregorian: getGregorianForDay(selectedDay), event: getEventForDay(selectedDay) }
     : null
 
-  // Year range for picker
   const yearRange = Array.from({ length: 20 }, (_, i) => todayHijri.year - 5 + i)
 
   return (
@@ -162,7 +138,7 @@ export function HijriCalendar() {
             <p className="text-sm text-blue-700 font-medium">
               Today: {todayHijri.day} {HIJRI_MONTHS[todayHijri.month - 1]} {todayHijri.year} AH
             </p>
-            <p className="text-xs text-blue-600 font-arabic" dir="rtl">
+            <p className="text-xs text-blue-600" dir="rtl">
               {todayHijri.day} {ARABIC_MONTHS[todayHijri.month - 1]} {todayHijri.year} هـ
             </p>
           </div>
@@ -179,9 +155,14 @@ export function HijriCalendar() {
 
           {/* Month navigation */}
           <div className="flex items-center justify-between mb-4">
-            <Button variant="outline" size="icon" onClick={goToPrevMonth}>
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
+
+            {/* ✅ Fixed: plain button instead of Button size="icon" */}
+            <button
+              onClick={goToPrevMonth}
+              className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4 text-gray-600" />
+            </button>
 
             <div className="text-center">
               <button
@@ -190,14 +171,18 @@ export function HijriCalendar() {
               >
                 {HIJRI_MONTHS[currentMonth - 1]} {currentYear} AH
               </button>
-              <p className="text-sm text-gray-500 font-arabic" dir="rtl">
+              <p className="text-sm text-gray-500" dir="rtl">
                 {ARABIC_MONTHS[currentMonth - 1]} {currentYear} هـ
               </p>
             </div>
 
-            <Button variant="outline" size="icon" onClick={goToNextMonth}>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
+            {/* ✅ Fixed: plain button instead of Button size="icon" */}
+            <button
+              onClick={goToNextMonth}
+              className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
+            >
+              <ChevronRight className="w-4 h-4 text-gray-600" />
+            </button>
           </div>
 
           {/* Year picker */}
@@ -237,19 +222,14 @@ export function HijriCalendar() {
 
           {/* Calendar days */}
           <div className="grid grid-cols-7 gap-1">
-            {/* Empty cells before first day */}
             {Array.from({ length: firstWeekDay }).map((_, i) => (
               <div key={`empty-${i}`} />
             ))}
 
-            {/* Day cells */}
             {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
-              const event    = getEventForDay(day)
-              const isJumua  = (() => {
-                const d = getGregorianForDay(day)
-                return d.getDay() === 5 // Friday
-              })()
-              const greg = getGregorianForDay(day)
+              const event   = getEventForDay(day)
+              const greg    = getGregorianForDay(day)
+              const isJumua = greg.getDay() === 5
 
               return (
                 <button
@@ -269,9 +249,7 @@ export function HijriCalendar() {
                   `}
                 >
                   <span className="text-base leading-tight">{day}</span>
-                  <span className={`text-xs leading-tight ${
-                    isToday(day) ? 'text-blue-100' : 'text-gray-400'
-                  }`}>
+                  <span className={`text-xs leading-tight ${isToday(day) ? 'text-blue-100' : 'text-gray-400'}`}>
                     {greg.getDate()}
                   </span>
                   {event && (
@@ -303,7 +281,7 @@ export function HijriCalendar() {
               <h4 className="font-semibold text-blue-900 mb-3">
                 {selectedDay} {HIJRI_MONTHS[currentMonth - 1]} {currentYear} AH
               </h4>
-              <p className="text-sm text-blue-700 font-arabic mb-1" dir="rtl">
+              <p className="text-sm text-blue-700 mb-1" dir="rtl">
                 {selectedDay} {ARABIC_MONTHS[currentMonth - 1]} {currentYear} هـ
               </p>
               <p className="text-sm text-blue-700 mb-3">
