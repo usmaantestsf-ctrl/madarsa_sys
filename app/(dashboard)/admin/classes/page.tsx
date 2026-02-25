@@ -6,7 +6,7 @@ import { ClassesSearch } from './classes-search'
 
 async function getClassesWithDepartments(searchQuery?: string) {
   const supabase = await createClient()
-  
+
   let query = supabase
     .from('classes')
     .select(`
@@ -15,11 +15,14 @@ async function getClassesWithDepartments(searchQuery?: string) {
         id,
         name,
         type
+      ),
+      student_enrollments (
+        count
       )
     `)
+    .eq('student_enrollments.is_current', true)   // ✅ only count active enrollments
     .order('created_at', { ascending: false })
 
-  // Apply search if query exists
   if (searchQuery) {
     query = query.ilike('name', `%${searchQuery}%`)
   }

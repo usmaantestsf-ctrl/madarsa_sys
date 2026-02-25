@@ -28,13 +28,15 @@ export async function PUT(
       contact_number,
       is_active,
       is_passed,
-      qualification,      // ✅ NEW
-      passed_out_date,    // ✅ NEW
+      qualification,
+      passed_out_date,
+      class_id,        // ✅ NEW
+      academic_year,   // ✅ NEW
     } = body
 
     const supabase = await createClient()
 
-    // ─── Step 1: Update the student ───────────────────────────────
+    // ─── Step 1: Update student ────────────────────────────────────
     const { data, error } = await supabase
       .from('students')
       .update({
@@ -67,35 +69,78 @@ export async function PUT(
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    // ─── Step 2: Sync passed_students table ───────────────────────
+    // ─── Step 2: Sync enrollment if class_id provided ─────────────
+    if (class_id && academic_year) {
+      // Check if enrollment exists for this year
+      const { data: existingEnrollment } = await supabase
+        .from('student_enrollments')
+        .select('id')
+        .eq('student_id', id)
+        .eq('academic_year', academic_year)
+        .single()
 
+      if (existingEnrollment) {
+        // ✅ Already enrolled this year → UPDATE class
+        await supabase
+          .from('student_enrollments')
+          .update({
+            class_id,
+            department_id: department_id || null,
+            is_current:    true,
+            updated_at:    new Date().toISOString(),
+          })
+          .eq('id', existingEnrollment.id)
+      } else {
+        // ✅ No enrollment this year → mark old ones not current + INSERT new
+        await supabase
+          .from('student_enrollments')
+          .update({ is_current: false })
+          .eq('student_id', id)
+          .eq('is_current', true)
+
+        await supabase
+          .from('student_enrollments')
+          .insert({
+            student_id:    id,
+            class_id,
+            department_id: department_id || null,
+            academic_year,
+            is_current:    true,
+            status:        'active',
+            enrolled_at:   new Date().toISOString().split('T')[0],
+          })
+      }
+    }
+
+    // ─── Step 3: Sync passed_students table ───────────────────────
     if (is_passed === true) {
-      // Check if already exists in passed_students
       const { data: existing } = await supabase
         .from('passed_students')
         .select('id')
         .eq('student_id', id)
         .single()
 
+      // Get final class from current enrollment
+      const { data: currentEnrollment } = await supabase
+        .from('student_enrollments')
+        .select('class_id')
+        .eq('student_id', id)
+        .eq('is_current', true)
+        .single()
+
       if (existing) {
-        // ✅ Already exists → UPDATE qualification and date
-        const { error: updateError } = await supabase
+        await supabase
           .from('passed_students')
           .update({
             qualification:   qualification || 'Hafiz',
             passed_out_date: passed_out_date || new Date().toISOString().split('T')[0],
             department_id:   department_id || null,
+            final_class_id:  currentEnrollment?.class_id || null, // ✅ now populated
             updated_at:      new Date().toISOString(),
           })
           .eq('student_id', id)
-
-        if (updateError) {
-          return NextResponse.json({ error: updateError.message }, { status: 400 })
-        }
-
       } else {
-        // ✅ Doesn't exist → INSERT new record
-        const { error: insertError } = await supabase
+        await supabase
           .from('passed_students')
           .insert({
             student_id:      id,
@@ -104,24 +149,22 @@ export async function PUT(
             qualification:   qualification || 'Hafiz',
             passed_out_date: passed_out_date || new Date().toISOString().split('T')[0],
             department_id:   department_id || null,
-            final_class_id:  null, // will be updated after student_enrollments is set up
+            final_class_id:  currentEnrollment?.class_id || null, // ✅ now populated
           })
-
-        if (insertError) {
-          return NextResponse.json({ error: insertError.message }, { status: 400 })
-        }
       }
 
+      // ✅ Also mark enrollment as passed
+      await supabase
+        .from('student_enrollments')
+        .update({ status: 'passed', is_current: false })
+        .eq('student_id', id)
+        .eq('is_current', true)
+
     } else if (is_passed === false) {
-      // ✅ is_passed turned OFF → DELETE from passed_students
-      const { error: deleteError } = await supabase
+      await supabase
         .from('passed_students')
         .delete()
         .eq('student_id', id)
-
-      if (deleteError) {
-        return NextResponse.json({ error: deleteError.message }, { status: 400 })
-      }
     }
 
     return NextResponse.json(data)

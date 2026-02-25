@@ -3,19 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StudentsList } from './students-list'
 import { AddStudentDialog } from './add-student-dialog'
 import { StudentsSearch } from './students-search'
+import { PromoteStudentsDialog } from './promote-students-dialog'
+import { PassedStudentsList } from './passed-students-list' // ✅ NEW
+import Link from 'next/link'
+import { GraduationCap } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 async function getStudents(searchQuery?: string) {
   const supabase = await createClient()
 
   let query = supabase
     .from('students')
-    .select(`
-      *,
-      departments (
-        name,
-        type
-      )
-    `)
+    .select(`*, departments(name, type)`)
     .order('created_at', { ascending: false })
 
   if (searchQuery) {
@@ -25,39 +24,131 @@ async function getStudents(searchQuery?: string) {
   }
 
   const { data: students, error } = await query
-
-  if (error) {
-    console.error('Error fetching students:', error)
-    return []
-  }
-
+  if (error) { console.error('Error fetching students:', error); return [] }
   return students || []
+}
+
+async function getPassedStudents() {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('passed_students')
+    .select(`
+      *,
+      departments(name),
+      classes:final_class_id(name),
+      students(name_with_initial, date_of_birth, contact_number, district)
+    `)
+    .order('passed_out_date', { ascending: false })
+
+  if (error) { console.error('Error fetching passed students:', error); return [] }
+  return data || []
+}
+
+async function getEnrollmentSummary() {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('student_enrollments')
+    .select('academic_year')
+    .eq('is_current', true)
+    .eq('status', 'active')
+
+  if (error || !data) return { currentYear: '', totalActive: 0 }
+
+  const yearCounts: Record<string, number> = {}
+  data.forEach(e => {
+    yearCounts[e.academic_year] = (yearCounts[e.academic_year] || 0) + 1
+  })
+
+  const currentYear = Object.entries(yearCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || ''
+  return { currentYear, totalActive: data.length }
 }
 
 export default async function StudentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string }>
+  searchParams: Promise<{ search?: string; view?: string }>
 }) {
   const params = await searchParams
   const searchQuery = params.search
-  const students = await getStudents(searchQuery)
+  const view = params.view || 'active'  // ✅ 'active' | 'passed'
+
+  const [students, passedStudents, enrollmentSummary] = await Promise.all([
+    getStudents(searchQuery),
+    getPassedStudents(),
+    getEnrollmentSummary(),
+  ])
+
+  const totalStudents = students.length
+  const activeStudents = students.filter(s => s.is_active).length
+  const passedCount = passedStudents.length
 
   return (
     <div className="space-y-6">
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg border p-4">
+          <p className="text-sm text-gray-500">Total Students</p>
+          <p className="text-2xl font-bold text-gray-900">{totalStudents}</p>
+        </div>
+        <div className="bg-white rounded-lg border p-4">
+          <p className="text-sm text-gray-500">Active Students</p>
+          <p className="text-2xl font-bold text-green-600">{activeStudents}</p>
+        </div>
+        <div className="bg-white rounded-lg border p-4">
+          <p className="text-sm text-gray-500">Passed Out</p>
+          <p className="text-2xl font-bold text-blue-600">{passedCount}</p>
+        </div>
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>Students Management</CardTitle>
-          <p className="text-sm text-gray-500">
-            Manage enrolled students
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Students Management</CardTitle>
+              <p className="text-sm text-gray-500 mt-1">Manage enrolled students</p>
+            </div>
+            <div className="flex items-center gap-2">
+              {enrollmentSummary.totalActive > 0 && view === 'active' && (
+                <PromoteStudentsDialog
+                  currentYear={enrollmentSummary.currentYear}
+                  totalActive={enrollmentSummary.totalActive}
+                />
+              )}
+              {/* ✅ Toggle between Active and Passed Students */}
+              {view === 'active' ? (
+                <Link href="?view=passed">
+                  <Button variant="outline" className="border-blue-300 text-blue-600 hover:bg-blue-50">
+                    <GraduationCap className="w-4 h-4 mr-2" />
+                    View Passed Students ({passedCount})
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="?view=active">
+                  <Button variant="outline">
+                    ← Back to Active Students
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between gap-4 mb-6">
-            <StudentsSearch initialSearch={searchQuery} />
-            <AddStudentDialog />
-          </div>
-          <StudentsList students={students} />
+          {view === 'passed' ? (
+            // ✅ Passed Students View
+            <PassedStudentsList passedStudents={passedStudents} />
+          ) : (
+            // ✅ Active Students View
+            <>
+              <div className="flex items-center justify-between gap-4 mb-6">
+                <StudentsSearch initialSearch={searchQuery} />
+                <AddStudentDialog />
+              </div>
+              <StudentsList students={students} />
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

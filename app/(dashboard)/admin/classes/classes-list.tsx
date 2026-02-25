@@ -19,6 +19,7 @@ type ClassWithDepartment = {
     name: string
     type: string
   }
+  student_enrollments: { count: number | string }[]
 }
 
 type Department = {
@@ -27,25 +28,26 @@ type Department = {
   type: string
 }
 
-export function ClassesList({ 
-  classes, 
-  departments 
-}: { 
+export function ClassesList({
+  classes,
+  departments,
+}: {
   classes: ClassWithDepartment[]
   departments: Department[]
 }) {
   const router = useRouter()
   const [editingClass, setEditingClass] = useState<ClassWithDepartment | null>(null)
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this class?')) return
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete "${name}"?`)) return
 
     const res = await fetch(`/api/classes/${id}`, { method: 'DELETE' })
-    
+
     if (res.ok) {
       router.refresh()
     } else {
-      alert('Failed to delete class')
+      const error = await res.json()
+      alert(error.error || 'Failed to delete class')  // ✅ shows proper error message
     }
   }
 
@@ -65,55 +67,58 @@ export function ClassesList({
             <tr>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Class Name</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Department</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Default Strength</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Enrolled / Capacity</th>  {/* ✅ updated */}
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Created</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {classes.map((classItem) => (
-              <tr key={classItem.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm font-medium text-gray-900">{classItem.name}</td>
-                <td className="px-4 py-3">
-                  <div>
-                    <p className="text-sm text-gray-900">{classItem.departments.name}</p>
-                    <p className="text-xs text-gray-500 capitalize">{classItem.departments.type}</p>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-600">
-                  <div className="flex items-center gap-1">
-                    <Users className="h-4 w-4 text-gray-400" />
-                    {classItem.default_strength} students
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm">
-                  <Badge variant={classItem.is_active ? 'success' : 'secondary'}>
-                    {classItem.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-600">
-                  {new Date(classItem.created_at).toLocaleDateString()}
-                </td>
-                <td className="px-4 py-3 text-sm text-right space-x-2">
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => setEditingClass(classItem)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => handleDelete(classItem.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </Button>
-                </td>
-              </tr>
-            ))}
+            {classes.map((classItem) => {
+              const enrolled = Number(classItem.student_enrollments?.[0]?.count ?? 0)
+              const isFull = enrolled >= classItem.default_strength
+              return (
+                <tr key={classItem.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{classItem.name}</td>
+                  <td className="px-4 py-3">
+                    <div>
+                      <p className="text-sm text-gray-900">{classItem.departments.name}</p>
+                      <p className="text-xs text-gray-500 capitalize">{classItem.departments.type}</p>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <div className="flex items-center gap-1">
+                      <Users className="h-4 w-4 text-gray-400" />
+                      <span className={isFull ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
+                        {enrolled}
+                      </span>
+                      <span className="text-gray-400">/ {classItem.default_strength}</span>
+                      {isFull && (
+                        <Badge className="ml-1 text-xs py-0 bg-red-100 text-red-700 border-red-200">Full</Badge>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <Badge variant={classItem.is_active ? 'success' : 'secondary'}>
+                      {classItem.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-600">
+                    {new Date(classItem.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right space-x-2">
+                    <Button variant="ghost" size="sm" onClick={() => setEditingClass(classItem)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(classItem.id, classItem.name)}>
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
+
         </table>
       </div>
 

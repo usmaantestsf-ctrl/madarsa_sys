@@ -11,15 +11,15 @@ export async function PUT(
     const { name, department_id, default_strength, is_active } = body
 
     const supabase = await createClient()
-    
+
     const { data, error } = await supabase
       .from('classes')
-      .update({ 
+      .update({
         name,
         department_id,
         default_strength,
         is_active,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
       .eq('id', id)
       .select()
@@ -31,10 +31,7 @@ export async function PUT(
 
     return NextResponse.json(data)
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -45,7 +42,21 @@ export async function DELETE(
   try {
     const { id } = await params
     const supabase = await createClient()
-    
+
+    // ✅ Check if any students are enrolled in this class
+    const { count } = await supabase
+      .from('student_enrollments')
+      .select('*', { count: 'exact', head: true })
+      .eq('class_id', id)
+      .eq('is_current', true)
+
+    if (count && count > 0) {
+      return NextResponse.json(
+        { error: `Cannot delete — ${count} student(s) currently enrolled in this class.` },
+        { status: 400 }
+      )
+    }
+
     const { error } = await supabase
       .from('classes')
       .delete()
@@ -57,9 +68,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

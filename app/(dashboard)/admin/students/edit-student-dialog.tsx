@@ -36,12 +36,22 @@ type Department = {
   is_active: boolean
 }
 
-// ✅ Qualifications list — add new ones here anytime
-const QUALIFICATIONS = [
-  'Hafiz',
-  'Alim',
-  'Hafiz & Alim',
-]
+type Class = {
+  id: string
+  name: string
+  department_id: string
+  default_strength: number
+  is_active: boolean
+}
+
+type Enrollment = {
+  id: string
+  class_id: string
+  academic_year: string
+  status: string
+}
+
+const QUALIFICATIONS = ['Hafiz', 'Alim', 'Hafiz & Alim']
 
 export function EditStudentDialog({
   student,
@@ -52,7 +62,13 @@ export function EditStudentDialog({
 }) {
   const [loading, setLoading] = useState(false)
   const [departments, setDepartments] = useState<Department[]>([])
+  const [classes, setClasses] = useState<Class[]>([])
   const [loadingDepartments, setLoadingDepartments] = useState(false)
+  const [loadingClasses, setLoadingClasses] = useState(false)
+  const [currentEnrollment, setCurrentEnrollment] = useState<Enrollment | null>(null)
+
+  const currentYear = new Date().getFullYear().toString()
+
   const [formData, setFormData] = useState({
     admission_number: student.admission_number,
     name_with_initial: student.name_with_initial,
@@ -73,20 +89,31 @@ export function EditStudentDialog({
     contact_number: student.contact_number || '',
     is_active: student.is_active,
     is_passed: student.is_passed || false,
-    qualification: '',       // ✅ NEW
-    passed_out_date: '',     // ✅ NEW
+    qualification: '',
+    passed_out_date: '',
+    // ✅ Enrollment fields
+    class_id: '',
+    academic_year: currentYear,
   })
 
   const router = useRouter()
 
   useEffect(() => {
     fetchDepartments()
+    fetchCurrentEnrollment()
+  }, [])
+
+  // ✅ Load classes when department is already set on mount
+  useEffect(() => {
+    if (formData.department_id) {
+      fetchClasses(formData.department_id)
+    }
   }, [])
 
   const fetchDepartments = async () => {
     setLoadingDepartments(true)
     try {
-      const res = await fetch('/api/departments')
+      const res = await fetch('/api/departments?active=true')
       if (res.ok) {
         const data = await res.json()
         setDepartments(data.filter((d: Department) => d.is_active))
@@ -98,6 +125,41 @@ export function EditStudentDialog({
     }
   }
 
+  // ✅ Fetch student's current enrollment to pre-fill class + academic year
+  const fetchCurrentEnrollment = async () => {
+    try {
+      const res = await fetch(`/api/students/${student.id}/enrollment`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data) {
+          setCurrentEnrollment(data)
+          setFormData(prev => ({
+            ...prev,
+            class_id: data.class_id || '',
+            academic_year: data.academic_year || currentYear,
+          }))
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch enrollment:', error)
+    }
+  }
+
+  const fetchClasses = async (departmentId: string) => {
+    setLoadingClasses(true)
+    try {
+      const res = await fetch(`/api/classes?department_id=${departmentId}&active=true`)
+      if (res.ok) {
+        const data = await res.json()
+        setClasses(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch classes:', error)
+    } finally {
+      setLoadingClasses(false)
+    }
+  }
+
   const handleDepartmentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedDept = departments.find(d => d.id === e.target.value)
     setFormData({
@@ -105,10 +167,15 @@ export function EditStudentDialog({
       department_id: e.target.value,
       department: selectedDept?.name || '',
       madrasa_grade: selectedDept?.name || '',
+      class_id: '', // reset class when dept changes
     })
+    if (e.target.value) {
+      fetchClasses(e.target.value)
+    } else {
+      setClasses([])
+    }
   }
 
-  // ✅ When status changes, reset qualification if not passed out
   const handleStatusChange = (status: 'active' | 'passed' | 'inactive') => {
     if (status === 'active') {
       setFormData({ ...formData, is_active: true, is_passed: false, qualification: '', passed_out_date: '' })
@@ -122,7 +189,6 @@ export function EditStudentDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // ✅ Validate qualification if passed out
     if (formData.is_passed && !formData.qualification) {
       alert('Please select a qualification for passed out student.')
       return
@@ -225,18 +291,59 @@ export function EditStudentDialog({
           <div>
             <h3 className="text-sm font-semibold text-gray-700 mb-3">Academic Information</h3>
             <div className="grid grid-cols-2 gap-4">
+
+              {/* Department */}
               <div className="col-span-2">
-                <label className="text-xs text-gray-500 mb-1 block">Department (Madrasa Class) *</label>
+                <label className="text-xs text-gray-500 mb-1 block">Department *</label>
                 <select value={formData.department_id} onChange={handleDepartmentChange} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-                  <option value="">{loadingDepartments ? 'Loading departments...' : 'Select department'}</option>
+                  <option value="">{loadingDepartments ? 'Loading...' : 'Select department'}</option>
                   {departments.map((dept) => (
                     <option key={dept.id} value={dept.id}>{dept.name} ({dept.type})</option>
                   ))}
                 </select>
-                {formData.madrasa_grade && (
-                  <p className="text-xs text-blue-600 mt-1">Madrasa Grade → {formData.madrasa_grade}</p>
-                )}
               </div>
+
+              {/* ✅ Class — loads after department selected */}
+              {formData.department_id && (
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-500 mb-1 block">Class (Grade) *</label>
+                  <select
+                    value={formData.class_id}
+                    onChange={e => setFormData({ ...formData, class_id: e.target.value })}
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                    disabled={loadingClasses}
+                  >
+                    <option value="">{loadingClasses ? 'Loading classes...' : 'Select class'}</option>
+                    {classes.map((cls) => (
+                      <option key={cls.id} value={cls.id}>{cls.name}</option>
+                    ))}
+                  </select>
+                  {classes.length === 0 && !loadingClasses && (
+                    <p className="text-xs text-red-500 mt-1">⚠️ No classes found for this department.</p>
+                  )}
+                  {/* ✅ Show current enrollment info */}
+                  {currentEnrollment && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Current enrollment: Academic Year {currentEnrollment.academic_year} — {currentEnrollment.status}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* ✅ Academic Year */}
+              <div className="col-span-2">
+                <label className="text-xs text-gray-500 mb-1 block">
+                  Academic Year *
+                  <span className="text-gray-400 ml-1">(e.g. 2026 or Ramadan 1447)</span>
+                </label>
+                <Input
+                  value={formData.academic_year}
+                  onChange={e => setFormData({ ...formData, academic_year: e.target.value })}
+                  placeholder="e.g., 2026 or Ramadan 1447"
+                  required
+                />
+              </div>
+
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Grade (School Subjects)</label>
                 <select value={formData.school_grade} onChange={e => setFormData({ ...formData, school_grade: e.target.value })} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
@@ -294,7 +401,6 @@ export function EditStudentDialog({
               </label>
             </div>
 
-            {/* ✅ Qualification section — only shows when Passed Out is selected */}
             {formData.is_passed && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
                 <p className="text-xs font-semibold text-green-700">📜 Passed Out Details</p>
