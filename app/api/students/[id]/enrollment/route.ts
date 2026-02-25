@@ -1,16 +1,13 @@
-// app/api/students/enrollment/route.ts
+// app/api/students/[id]/enrollment/route.ts
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export async function GET(request: Request) {
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')  // called as /api/students/enrollment?id=xxx
-
-    if (!id) {
-      return NextResponse.json(null)
-    }
-
+    const { id } = await params
     const supabase = await createClient()
 
     const { data, error } = await supabase
