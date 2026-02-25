@@ -12,32 +12,32 @@ import {
   UserCircle, 
   Calendar, 
   ClipboardCheck,
+  Moon,        // ✅ icon for Islamic Calendar
   Menu,
   X
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const adminMenuItems = [
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/departments', label: 'Departments', icon: Building2 },
-  { href: '/admin/classes', label: 'Classes', icon: GraduationCap },
-  { href: '/admin/subjects', label: 'Subjects', icon: BookOpen },
-  { href: '/admin/lecturers', label: 'Lecturers', icon: UserCircle },
-  { href: '/admin/students', label: 'Students', icon: Users },
-  { href: '/admin/timetable', label: 'Timetable', icon: Calendar },
-  { href: '/admin/attendance', label: 'Attendance', icon: ClipboardCheck },
+  { href: '/admin',             label: 'Dashboard',         icon: LayoutDashboard },
+  { href: '/admin/calendar',    label: 'Islamic Calendar',  icon: Moon },          // ✅ fixed
+  { href: '/admin/departments', label: 'Departments',       icon: Building2 },
+  { href: '/admin/classes',     label: 'Classes',           icon: GraduationCap },
+  { href: '/admin/subjects',    label: 'Subjects',          icon: BookOpen },
+  { href: '/admin/lecturers',   label: 'Lecturers',         icon: UserCircle },
+  { href: '/admin/students',    label: 'Students',          icon: Users },
+  { href: '/admin/timetable',   label: 'Timetable',         icon: Calendar },
+  { href: '/admin/attendance',  label: 'Attendance',        icon: ClipboardCheck },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
-  // Close mobile menu when route changes
   useEffect(() => {
     setIsMobileMenuOpen(false)
   }, [pathname])
 
-  // Prevent body scroll when mobile menu is open
   useEffect(() => {
     if (isMobileMenuOpen) {
       document.body.style.overflow = 'hidden'
@@ -51,7 +51,7 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile Menu Button - Fixed at top left */}
+      {/* Mobile Menu Button */}
       <button
         onClick={() => setIsMobileMenuOpen(true)}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white border border-gray-200 shadow-lg hover:bg-gray-50 transition-colors"
@@ -68,18 +68,13 @@ export function Sidebar() {
         />
       )}
 
-      {/* Sidebar - Hidden on mobile, visible on desktop */}
+      {/* Sidebar */}
       <aside
         className={cn(
-          // Base styles
           'h-screen w-64 flex flex-col bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out',
-          // Mobile: fixed and translateX
           'fixed top-0 left-0 z-50',
-          // Desktop: remove fixed, add flex
           'lg:relative lg:z-auto',
-          // Mobile transform
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
-          // Desktop always visible
           'lg:translate-x-0'
         )}
       >
@@ -100,7 +95,7 @@ export function Sidebar() {
           {adminMenuItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
-            
+
             return (
               <Link
                 key={item.href}
