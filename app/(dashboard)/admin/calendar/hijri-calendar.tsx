@@ -94,6 +94,18 @@ export function HijriCalendar() {
   const daysInMonth  = useMemo(() => getDaysInHijriMonth(currentYear, currentMonth),  [currentYear, currentMonth])
   const firstWeekDay = useMemo(() => getFirstDayOfHijriMonth(currentYear, currentMonth), [currentYear, currentMonth])
 
+  // ✅ FIX: Compute Gregorian date of day 1 once, then offset for all other days
+  const firstDayGregorian = useMemo(
+    () => hijriToGregorian(currentYear, currentMonth, 1),
+    [currentYear, currentMonth]
+  )
+
+  const getGregorianForDay = (day: number) => {
+    const d = new Date(firstDayGregorian)
+    d.setDate(d.getDate() + (day - 1))
+    return d
+  }
+
   const goToPrevMonth = () => {
     if (currentMonth === 1) { setCurrentMonth(12); setCurrentYear(y => y - 1) }
     else setCurrentMonth(m => m - 1)
@@ -118,8 +130,7 @@ export function HijriCalendar() {
     currentMonth === todayHijri.month &&
     currentYear === todayHijri.year
 
-  const getEventForDay  = (day: number) => ISLAMIC_EVENTS[`${currentMonth}-${day}`]
-  const getGregorianForDay = (day: number) => hijriToGregorian(currentYear, currentMonth, day)
+  const getEventForDay = (day: number) => ISLAMIC_EVENTS[`${currentMonth}-${day}`]
 
   const selectedInfo = selectedDay
     ? { gregorian: getGregorianForDay(selectedDay), event: getEventForDay(selectedDay) }
@@ -155,8 +166,6 @@ export function HijriCalendar() {
 
           {/* Month navigation */}
           <div className="flex items-center justify-between mb-4">
-
-            {/* ✅ Fixed: plain button instead of Button size="icon" */}
             <button
               onClick={goToPrevMonth}
               className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
@@ -176,7 +185,6 @@ export function HijriCalendar() {
               </p>
             </div>
 
-            {/* ✅ Fixed: plain button instead of Button size="icon" */}
             <button
               onClick={goToNextMonth}
               className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
@@ -228,7 +236,7 @@ export function HijriCalendar() {
 
             {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
               const event   = getEventForDay(day)
-              const greg    = getGregorianForDay(day)
+              const greg    = getGregorianForDay(day)  // ✅ now uses offset-based helper
               const isJumua = greg.getDay() === 5
 
               return (
