@@ -47,25 +47,54 @@ async function getPassedStudents() {
   return data || []
 }
 
+// async function getEnrollmentSummary() {
+//   const supabase = await createClient()
+
+//   const { data, error } = await supabase
+//     .from('student_enrollments')
+//     .select('academic_year')
+//     .eq('is_current', true)
+//     .eq('status', 'active')
+
+//   if (error || !data) return { currentYear: '', totalActive: 0 }
+
+//   const yearCounts: Record<string, number> = {}
+//   data.forEach(e => {
+//     yearCounts[e.academic_year] = (yearCounts[e.academic_year] || 0) + 1
+//   })
+
+//   const currentYear = Object.entries(yearCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || ''
+//   return { currentYear, totalActive: data.length }
+// }
+
+// app/(dashboard)/admin/students/page.tsx
 async function getEnrollmentSummary() {
   const supabase = await createClient()
 
-  const { data, error } = await supabase
+  // Get current academic year from enrollments
+  const { data: enrollments } = await supabase
     .from('student_enrollments')
     .select('academic_year')
     .eq('is_current', true)
     .eq('status', 'active')
 
-  if (error || !data) return { currentYear: '', totalActive: 0 }
-
   const yearCounts: Record<string, number> = {}
-  data.forEach(e => {
+  enrollments?.forEach(e => {
     yearCounts[e.academic_year] = (yearCounts[e.academic_year] || 0) + 1
   })
+  const currentYear =
+    Object.entries(yearCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || ''
 
-  const currentYear = Object.entries(yearCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || ''
-  return { currentYear, totalActive: data.length }
+  // ✅ Count directly from students table — not from enrollments
+  const { count } = await supabase
+    .from('students')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_active', true)
+    .eq('is_passed', false)
+
+  return { currentYear, totalActive: count ?? 0 }
 }
+
 
 async function getDepartments() {
   const supabase = await createClient()
@@ -106,7 +135,13 @@ export default async function StudentsPage({
               <p className="text-sm text-gray-500 mt-1">Manage enrolled students</p>
             </div>
             <div className="flex items-center gap-2">
-              {enrollmentSummary.totalActive > 0 && view === 'active' && (
+              {/* {enrollmentSummary.totalActive > 0 && view === 'active' && (
+                <PromoteStudentsDialog
+                  currentYear={enrollmentSummary.currentYear}
+                  totalActive={enrollmentSummary.totalActive}
+                />
+              )} */}
+              {view === 'active' && (
                 <PromoteStudentsDialog
                   currentYear={enrollmentSummary.currentYear}
                   totalActive={enrollmentSummary.totalActive}

@@ -3,20 +3,44 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const { academic_year, new_academic_year } = body
+    const { newAcademicYear } = await request.json()
 
-    if (!academic_year || !new_academic_year) {
+    if (!newAcademicYear) {
       return NextResponse.json(
-        { error: 'Both current and new academic year are required' },
+        { error: 'newAcademicYear is required' },
         { status: 400 }
       )
     }
 
     const supabase = await createClient()
 
-    // ─── Step 1: Get all active current enrollments ────────────────
-    const { data: enrollments, error: fetchError } = await supabase
+    // ── 1. Fetch progression maps for ALL departments ──
+    const { data: progressionMaps, error: progError } = await supabase
+      .from('class_progression_map')
+      .select('department_id, current_class_id, next_class_id')
+
+    if (progError) {
+      return NextResponse.json({ error: progError.message }, { status: 400 })
+    }
+
+    if (!progressionMaps || progressionMaps.length === 0) {
+      return NextResponse.json(
+        { error: 'No class progression maps found. Please configure progression maps first.' },
+        { status: 400 }
+      )
+    }
+
+    // Build lookup: "dept_id__class_id" → next_class_id (null = final class)
+    const progressionLookup: Record<string, string | null> = {}
+    const departmentsWithProgression = new Set<string>()
+
+    progressionMaps.forEach(p => {
+      progressionLookup[`${p.department_id}__${p.current_class_id}`] = p.next_class_id
+      departmentsWithProgression.add(p.department_id)
+    })
+
+    // ── 2. Fetch all active enrollments ──
+    const { data: enrollments, error: enrollError } = await supabase
       .from('student_enrollments')
       .select(`
         id,
@@ -26,153 +50,136 @@ export async function POST(request: Request) {
         academic_year,
         students (
           id,
-          is_passed,
-          is_active,
           admission_number,
           full_name
         )
       `)
-      .eq('academic_year', academic_year)
       .eq('is_current', true)
       .eq('status', 'active')
 
-    if (fetchError) {
-      return NextResponse.json({ error: fetchError.message }, { status: 400 })
+    if (enrollError) {
+      return NextResponse.json({ error: enrollError.message }, { status: 400 })
     }
 
     if (!enrollments || enrollments.length === 0) {
-      return NextResponse.json(
-        { error: `No active enrollments found for academic year ${academic_year}` },
-        { status: 404 }
-      )
+      return NextResponse.json({
+        result: { total: 0, promoted: 0, passedOut: 0, skipped: 0, failed: 0, errors: [] }
+      })
     }
 
-    // ─── Step 2: Get full progression map separately ───────────────
-    const { data: progressionMap, error: progressionError } = await supabase
-      .from('class_progression_map')
-      .select('current_class_id, next_class_id')
-
-    if (progressionError) {
-      return NextResponse.json({ error: progressionError.message }, { status: 400 })
-    }
-
-    // Build a lookup map: current_class_id → next_class_id
-    const progressionLookup: Record<string, string | null> = {}
-    progressionMap?.forEach(p => {
-      progressionLookup[p.current_class_id] = p.next_class_id
-    })
-
-    let promoted = 0
-    let passedOut = 0
-    let skipped = 0
+    const today    = new Date().toISOString().split('T')[0]
+    let promoted   = 0
+    let passedOut  = 0
+    let skipped    = 0
+    let failed     = 0
     const errors: string[] = []
 
     for (const enrollment of enrollments) {
       const student = enrollment.students as any
 
-      // ─── Skip already passed out students ─────────────────────
-      if (student?.is_passed === true) {
+      // ── Skip: department has no progression map at all ──
+      if (!departmentsWithProgression.has(enrollment.department_id)) {
         skipped++
         continue
       }
 
-      // ─── Skip inactive students ────────────────────────────────
-      if (student?.is_active === false) {
-        skipped++
-        continue
-      }
+      try {
+        const key         = `${enrollment.department_id}__${enrollment.class_id}`
+        const hasMapping  = Object.prototype.hasOwnProperty.call(progressionLookup, key)
+        const nextClassId = hasMapping ? progressionLookup[key] : undefined
 
-      // ─── Lookup next class from progression map ────────────────
-      const nextClassId = enrollment.class_id in progressionLookup
-        ? progressionLookup[enrollment.class_id]
-        : undefined
-
-      // ─── Class not in progression map — skip with warning ──────
-      if (nextClassId === undefined) {
-        errors.push(`${student?.full_name}: Class not found in progression map — skipped`)
-        skipped++
-        continue
-      }
-
-      // ─── Mark current enrollment as promoted ───────────────────
-      const { error: updateError } = await supabase
-        .from('student_enrollments')
-        .update({
-          is_current:  false,
-          status:      'promoted',
-          promoted_at: new Date().toISOString().split('T')[0],
-          updated_at:  new Date().toISOString(),
-        })
-        .eq('id', enrollment.id)
-
-      if (updateError) {
-        errors.push(`Failed to update enrollment for ${student?.full_name}: ${updateError.message}`)
-        continue
-      }
-
-      if (nextClassId === null) {
-        // ─── FINAL GRADE → Auto mark as passed out ────────────────
-        await supabase
-          .from('students')
-          .update({
-            is_passed:  true,
-            is_active:  false,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', enrollment.student_id)
-
-        await supabase
-          .from('passed_students')
-          .insert({
-            student_id:       enrollment.student_id,
-            admission_number: student?.admission_number,
-            full_name:        student?.full_name,
-            qualification:    'Hafiz',
-            passed_out_date:  new Date().toISOString().split('T')[0],
-            department_id:    enrollment.department_id,
-            final_class_id:   enrollment.class_id,
-          })
-
-        passedOut++
-
-      } else {
-        // ─── Normal promotion → Insert new enrollment ──────────────
-        const { error: insertError } = await supabase
-          .from('student_enrollments')
-          .insert({
-            student_id:    enrollment.student_id,
-            class_id:      nextClassId,
-            department_id: enrollment.department_id,
-            academic_year: new_academic_year,
-            is_current:    true,
-            status:        'active',
-            enrolled_at:   new Date().toISOString().split('T')[0],
-          })
-
-        if (insertError) {
-          errors.push(`Failed to enroll ${student?.full_name}: ${insertError.message}`)
+        // ── Skip: this specific class has no mapping in the progression map ──
+        if (nextClassId === undefined) {
+          skipped++
           continue
         }
 
-        promoted++
+        // ── Close current enrollment ──
+        const { error: closeError } = await supabase
+          .from('student_enrollments')
+          .update({
+            is_current:  false,
+            status:      nextClassId ? 'promoted' : 'passed',
+            promoted_at: today,
+          })
+          .eq('id', enrollment.id)
+
+        if (closeError) throw new Error(`Failed to close enrollment: ${closeError.message}`)
+
+        if (nextClassId) {
+          // ── PROMOTE: create new enrollment in next class ──
+          const { error: newEnrollError } = await supabase
+            .from('student_enrollments')
+            .insert({
+              student_id:    enrollment.student_id,
+              class_id:      nextClassId,
+              department_id: enrollment.department_id,
+              academic_year: newAcademicYear,
+              is_current:    true,
+              status:        'active',
+              enrolled_at:   today,
+            })
+
+          if (newEnrollError) throw new Error(`Failed to create enrollment: ${newEnrollError.message}`)
+          promoted++
+
+        } else {
+          // ── PASSED OUT: final class (next_class_id is null) ──
+
+          // Avoid duplicate in passed_students
+          const { data: existing } = await supabase
+            .from('passed_students')
+            .select('id')
+            .eq('student_id', enrollment.student_id)
+            .maybeSingle()
+
+          if (!existing) {
+            const { error: passedError } = await supabase
+              .from('passed_students')
+              .insert({
+                student_id:       enrollment.student_id,
+                admission_number: student?.admission_number || '',
+                full_name:        student?.full_name        || '',
+                qualification:    'Completed',
+                passed_out_date:  today,
+                department_id:    enrollment.department_id,
+                final_class_id:   enrollment.class_id,
+              })
+
+            if (passedError) throw new Error(`Failed to insert passed student: ${passedError.message}`)
+          }
+
+          // Mark student is_passed = true, is_active = false
+          const { error: studentUpdateError } = await supabase
+            .from('students')
+            .update({ is_active: false, is_passed: true })
+            .eq('id', enrollment.student_id)
+
+          if (studentUpdateError) throw new Error(`Failed to update student: ${studentUpdateError.message}`)
+
+          passedOut++
+        }
+
+      } catch (err: any) {
+        failed++
+        errors.push(`${student?.full_name || enrollment.student_id}: ${err.message}`)
       }
     }
 
     return NextResponse.json({
-      success: true,
-      summary: {
-        total:     enrollments.length,
+      result: {
+        total:    enrollments.length,
         promoted,
         passedOut,
         skipped,
-        errors:    errors.length,
-      },
-      errors,
+        failed,
+        errors,
+      }
     })
 
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error.message || 'Internal server error' },
       { status: 500 }
     )
   }
