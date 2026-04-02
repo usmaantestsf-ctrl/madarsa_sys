@@ -7,6 +7,19 @@ import { ClassesSearch } from './classes-search'
 async function getClassesWithDepartments(searchQuery?: string) {
   const supabase = await createClient()
 
+  let departmentIds: string[] = []
+
+  // Step 1: find department IDs that match the search term
+  if (searchQuery) {
+    const { data: matchingDepts } = await supabase
+      .from('departments')
+      .select('id')
+      .ilike('name', `%${searchQuery}%`)
+
+    departmentIds = matchingDepts?.map((d) => d.id) ?? []
+  }
+
+  // Step 2: fetch classes — filter by class name OR matching department_id
   let query = supabase
     .from('classes')
     .select(`
@@ -20,11 +33,18 @@ async function getClassesWithDepartments(searchQuery?: string) {
         count
       )
     `)
-    .eq('student_enrollments.is_current', true)   // ✅ only count active enrollments
+    .eq('student_enrollments.is_current', true)
     .order('created_at', { ascending: false })
 
   if (searchQuery) {
-    query = query.ilike('name', `%${searchQuery}%`)
+    if (departmentIds.length > 0) {
+      query = query.or(
+        `name.ilike.%${searchQuery}%,department_id.in.(${departmentIds.join(',')})`
+      )
+    } else {
+      // no departments matched, fall back to class name only
+      query = query.ilike('name', `%${searchQuery}%`)
+    }
   }
 
   const { data: classes, error } = await query

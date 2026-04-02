@@ -34,17 +34,19 @@ const daysOfWeek = [
 
 export function AddTimetableDialog({
   classId,
-  subjects,
+  departmentId,
 }: {
   classId: string
-  subjects: Subject[]
+  departmentId: string
 }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
   const [lecturers, setLecturers] = useState<Lecturer[]>([])
+  const [subjects, setSubjects] = useState<Subject[]>([])
   const [loadingSlots, setLoadingSlots] = useState(true)
   const [loadingLecturers, setLoadingLecturers] = useState(true)
+  const [loadingSubjects, setLoadingSubjects] = useState(true)
   const [formData, setFormData] = useState({
     class_id: classId,
     subject_id: '',
@@ -54,24 +56,20 @@ export function AddTimetableDialog({
   })
   const router = useRouter()
 
-  // Fetch time slots and lecturers when dialog opens
   useEffect(() => {
     if (open) {
       fetchTimeSlots()
       fetchLecturers()
+      fetchSubjects()
     }
-  }, [open])
+  }, [open, departmentId])
 
   const fetchTimeSlots = async () => {
     try {
       setLoadingSlots(true)
-      const res = await fetch('/api/time-slots')
-      if (res.ok) {
-        const data = await res.json()
-        setTimeSlots(data)
-      } else {
-        console.error('Failed to fetch time slots')
-      }
+      const res = await fetch(`/api/time-slots?departmentId=${departmentId}`)
+      if (res.ok) setTimeSlots(await res.json())
+      else console.error('Failed to fetch time slots')
     } catch (err) {
       console.error('Error fetching time slots:', err)
     } finally {
@@ -83,12 +81,8 @@ export function AddTimetableDialog({
     try {
       setLoadingLecturers(true)
       const res = await fetch('/api/lecturers/list')
-      if (res.ok) {
-        const data = await res.json()
-        setLecturers(data)
-      } else {
-        console.error('Failed to fetch lecturers')
-      }
+      if (res.ok) setLecturers(await res.json())
+      else console.error('Failed to fetch lecturers')
     } catch (err) {
       console.error('Error fetching lecturers:', err)
     } finally {
@@ -96,7 +90,19 @@ export function AddTimetableDialog({
     }
   }
 
-  // Format time to display (HH:MM AM/PM)
+  const fetchSubjects = async () => {
+    try {
+      setLoadingSubjects(true)
+      const res = await fetch(`/api/subjects?departmentId=${departmentId}`)
+      if (res.ok) setSubjects(await res.json())
+      else console.error('Failed to fetch subjects')
+    } catch (err) {
+      console.error('Error fetching subjects:', err)
+    } finally {
+      setLoadingSubjects(false)
+    }
+  }
+
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(':')
     const hour = parseInt(hours)
@@ -105,7 +111,6 @@ export function AddTimetableDialog({
     return `${displayHour}:${minutes} ${ampm}`
   }
 
-  // Get selected time slot details
   const selectedTimeSlot = timeSlots.find(
     (slot) => slot.id === formData.time_slot_id
   )
@@ -115,9 +120,8 @@ export function AddTimetableDialog({
     setLoading(true)
 
     try {
-      // Send null instead of empty string for lecturer_id
       const payload = {
-        ...formData,
+        ...formData, 
         lecturer_id: formData.lecturer_id || null,
       }
 
@@ -234,8 +238,11 @@ export function AddTimetableDialog({
               onChange={(e) => setFormData({ ...formData, subject_id: e.target.value })}
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
               required
+              disabled={loadingSubjects}
             >
-              <option value="">Select subject</option>
+              <option value="">
+                {loadingSubjects ? 'Loading subjects...' : 'Select subject'}
+              </option>
               {subjects.map((subject) => (
                 <option key={subject.id} value={subject.id}>
                   {subject.name}

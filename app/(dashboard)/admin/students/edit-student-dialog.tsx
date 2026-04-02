@@ -309,7 +309,14 @@ export function EditStudentDialog({
                   <label className="text-xs text-gray-500 mb-1 block">Class (Grade) *</label>
                   <select
                     value={formData.class_id}
-                    onChange={e => setFormData({ ...formData, class_id: e.target.value })}
+                    onChange={e => {
+                      const selectedClass = classes.find(c => c.id === e.target.value)
+                      setFormData({
+                        ...formData,
+                        class_id: e.target.value,
+                        madrasa_grade: selectedClass?.name || '',
+                      })
+                    }}
                     className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
                     disabled={loadingClasses}
                   >

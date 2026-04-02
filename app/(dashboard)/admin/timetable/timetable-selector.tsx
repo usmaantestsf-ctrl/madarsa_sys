@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { AddTimetableDialog } from './add-timetable-dialog'
 
 type Department = {
   id: string
@@ -33,13 +34,11 @@ export function TimetableSelector({
   const [classId, setClassId] = useState(selectedClass || '')
   const [filteredClasses, setFilteredClasses] = useState<Class[]>([])
 
-  // Filter classes when department changes
   useEffect(() => {
     if (departmentId) {
       const filtered = classes.filter((c) => c.department_id === departmentId)
       setFilteredClasses(filtered)
 
-      // Reset class if it doesn't belong to new department
       if (classId && !filtered.some((c) => c.id === classId)) {
         setClassId('')
       }
@@ -105,11 +104,21 @@ export function TimetableSelector({
           </select>
         </div>
 
-        {/* Filter Button */}
-        <div className="flex items-end">
-          <Button onClick={handleFilter} className="w-full" disabled={!departmentId || !classId}>
+        {/* Actions */}
+        <div className="flex items-end gap-2">
+          <Button
+            onClick={handleFilter}
+            className="flex-1"
+            disabled={!departmentId || !classId}
+          >
             View Timetable
           </Button>
+          {departmentId && classId && (
+            <AddTimetableDialog
+              classId={classId}
+              departmentId={departmentId}
+            />
+          )}
         </div>
       </div>
     </div>

@@ -8,7 +8,7 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await request.json()
-    const { name, description } = body
+    const { name, description, department_id } = body
 
     const supabase = await createClient()
     
@@ -17,6 +17,7 @@ export async function PUT(
       .update({ 
         name, 
         description,
+        department_id,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)

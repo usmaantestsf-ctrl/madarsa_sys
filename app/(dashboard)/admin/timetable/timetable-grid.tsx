@@ -16,8 +16,8 @@ type TimetableEntry = {
     id: string
     name: string
   }
-  lecturers: {
-    lecturer_id: string
+  lecturer: {
+    lecturer_id: number
     full_name: string
   } | null
   classes: {
@@ -32,36 +32,19 @@ type TimetableEntry = {
   }
 }
 
-type Subject = {
-  id: string
-  name: string
-}
-
 const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-export function TimetableGrid({
-  timetable,
-  subjects,
-}: {
-  timetable: TimetableEntry[]
-  subjects: Subject[]
-}) {
+export function TimetableGrid({ timetable }: { timetable: TimetableEntry[] }) {
   const router = useRouter()
   const [editingEntry, setEditingEntry] = useState<TimetableEntry | null>(null)
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this timetable entry?')) return
-
     const res = await fetch(`/api/timetable/${id}`, { method: 'DELETE' })
-
-    if (res.ok) {
-      router.refresh()
-    } else {
-      alert('Failed to delete timetable entry')
-    }
+    if (res.ok) router.refresh()
+    else alert('Failed to delete timetable entry')
   }
 
-  // Format time to display (HH:MM AM/PM)
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(':')
     const hour = parseInt(hours)
@@ -70,20 +53,12 @@ export function TimetableGrid({
     return `${displayHour}:${minutes} ${ampm}`
   }
 
-  // Group by day and sort by slot_number
   const groupedByDay = daysOfWeek.map((day, index) => ({
     day,
     entries: timetable
       .filter((entry) => entry.day_of_week === index)
-      .sort((a, b) => {
-        const slotA = a.time_slots?.slot_number ?? Infinity
-        const slotB = b.time_slots?.slot_number ?? Infinity
-        return slotA - slotB
-      }),
+      .sort((a, b) => (a.time_slots?.slot_number ?? Infinity) - (b.time_slots?.slot_number ?? Infinity)),
   }))
-
-  console.log('Timetable entries:', timetable) // Debug log
-  console.log('Grouped by day:', groupedByDay) // Debug log
 
   if (timetable.length === 0) {
     return (
@@ -98,7 +73,6 @@ export function TimetableGrid({
       <div className="space-y-6">
         {groupedByDay.map(({ day, entries }) => {
           if (entries.length === 0) return null
-
           return (
             <div key={day} className="border rounded-lg overflow-hidden">
               <div className="bg-primary-50 px-4 py-3 border-b">
@@ -106,10 +80,7 @@ export function TimetableGrid({
               </div>
               <div className="divide-y">
                 {entries.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="p-4 hover:bg-gray-50 flex items-center justify-between"
-                  >
+                  <div key={entry.id} className="p-4 hover:bg-gray-50 flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-4 mb-2">
                         <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
@@ -131,22 +102,14 @@ export function TimetableGrid({
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <User className="h-4 w-4 text-gray-400" />
-                        {entry.lecturers?.full_name || 'No lecturer assigned'}
+                        {entry.lecturer?.full_name || 'No lecturer assigned'}
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditingEntry(entry)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => setEditingEntry(entry)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(entry.id)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(entry.id)}>
                         <Trash2 className="h-4 w-4 text-red-600" />
                       </Button>
                     </div>
@@ -157,15 +120,6 @@ export function TimetableGrid({
           )
         })}
       </div>
-
-      {/* Uncomment when EditTimetableDialog is ready */}
-      {/* {editingEntry && (
-        <EditTimetableDialog
-          entry={editingEntry}
-          subjects={subjects}
-          onClose={() => setEditingEntry(null)}
-        />
-      )} */}
     </>
   )
 }

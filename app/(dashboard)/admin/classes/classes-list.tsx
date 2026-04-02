@@ -18,7 +18,7 @@ type ClassWithDepartment = {
     id: string
     name: string
     type: string
-  }
+  } | null
   student_enrollments: { count: number | string }[]
 }
 
@@ -47,7 +47,7 @@ export function ClassesList({
       router.refresh()
     } else {
       const error = await res.json()
-      alert(error.error || 'Failed to delete class')  // ✅ shows proper error message
+      alert(error.error || 'Failed to delete class')
     }
   }
 
@@ -67,7 +67,7 @@ export function ClassesList({
             <tr>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Class Name</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Department</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Enrolled / Capacity</th>  {/* ✅ updated */}
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Enrolled / Capacity</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Created</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Actions</th>
@@ -77,14 +77,19 @@ export function ClassesList({
             {classes.map((classItem) => {
               const enrolled = Number(classItem.student_enrollments?.[0]?.count ?? 0)
               const isFull = enrolled >= classItem.default_strength
+              const dept = classItem.departments
               return (
                 <tr key={classItem.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">{classItem.name}</td>
                   <td className="px-4 py-3">
-                    <div>
-                      <p className="text-sm text-gray-900">{classItem.departments.name}</p>
-                      <p className="text-xs text-gray-500 capitalize">{classItem.departments.type}</p>
-                    </div>
+                    {dept ? (
+                      <div>
+                        <p className="text-sm text-gray-900">{dept.name}</p>
+                        <p className="text-xs text-gray-500 capitalize">{dept.type}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">No department</p>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <div className="flex items-center gap-1">
@@ -94,12 +99,20 @@ export function ClassesList({
                       </span>
                       <span className="text-gray-400">/ {classItem.default_strength}</span>
                       {isFull && (
-                        <Badge className="ml-1 text-xs py-0 bg-red-100 text-red-700 border-red-200">Full</Badge>
+                        <Badge className="ml-1 text-xs py-0 bg-red-100 text-red-700 border border-red-200 hover:bg-red-100">
+                          Full
+                        </Badge>
                       )}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm">
-                    <Badge variant={classItem.is_active ? 'success' : 'secondary'}>
+                    <Badge
+                      className={
+                        classItem.is_active
+                          ? 'bg-green-100 text-green-700 border border-green-200 hover:bg-green-100'
+                          : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                      }
+                    >
                       {classItem.is_active ? 'Active' : 'Inactive'}
                     </Badge>
                   </td>
@@ -118,7 +131,6 @@ export function ClassesList({
               )
             })}
           </tbody>
-
         </table>
       </div>
 

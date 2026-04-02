@@ -6,7 +6,6 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { class_id, subject_id, lecturer_id, day_of_week, time_slot_id } = body
 
-    // Remove lecturer_id from required fields check
     if (!class_id || !subject_id || !time_slot_id) {
       return NextResponse.json(
         { error: 'class_id, subject_id, and time_slot_id are required' },
@@ -16,12 +15,14 @@ export async function POST(request: Request) {
 
     const supabase = await createClient()
 
+    console.log('Timetable insert payload:', { class_id, subject_id, lecturer_id, day_of_week, time_slot_id })
+
     const { data, error } = await supabase
       .from('timetable')
       .insert({
         class_id,
         subject_id,
-        lecturer_id: lecturer_id || null, // Allow null if not provided
+        lecturer_id: lecturer_id || null,
         day_of_week,
         time_slot_id,
         created_at: new Date().toISOString(),
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
       .single()
 
     if (error) {
+      console.error('Insert error:', error.message, error.details)
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 

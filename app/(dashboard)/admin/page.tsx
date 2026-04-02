@@ -49,8 +49,8 @@ export default async function AdminDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 mt-1">Overview of your Madrasa management system</p>
+        <h1 className="text-3xl font-bold text-gray-900">Al Salah</h1>
+        <p className="text-gray-500 mt-1">Overview Madrasa Managment System</p>
       </div>
 
       {/* KPI Cards — 2 cols mobile, 3 cols tablet, 5 cols laptop+ */}

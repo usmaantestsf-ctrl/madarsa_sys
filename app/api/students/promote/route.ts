@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
   try {
-    const { newAcademicYear } = await request.json()
+    const { newAcademicYear, departmentIds } = await request.json()
 
     if (!newAcademicYear) {
       return NextResponse.json(
@@ -12,12 +12,21 @@ export async function POST(request: Request) {
       )
     }
 
+    const filterByDepartments =
+      Array.isArray(departmentIds) && departmentIds.length > 0
+
     const supabase = await createClient()
 
-    // ── 1. Fetch progression maps for ALL departments ──
-    const { data: progressionMaps, error: progError } = await supabase
+    // ── 1. Fetch progression maps ──────────────────────────────────────────────
+    let progQuery = supabase
       .from('class_progression_map')
       .select('department_id, current_class_id, next_class_id')
+
+    if (filterByDepartments) {
+      progQuery = progQuery.in('department_id', departmentIds)
+    }
+
+    const { data: progressionMaps, error: progError } = await progQuery
 
     if (progError) {
       return NextResponse.json({ error: progError.message }, { status: 400 })
@@ -25,12 +34,15 @@ export async function POST(request: Request) {
 
     if (!progressionMaps || progressionMaps.length === 0) {
       return NextResponse.json(
-        { error: 'No class progression maps found. Please configure progression maps first.' },
+        {
+          error: filterByDepartments
+            ? 'No class progression maps found for the selected departments. Please configure progression maps first.'
+            : 'No class progression maps found. Please configure progression maps first.',
+        },
         { status: 400 }
       )
     }
 
-    // Build lookup: "dept_id__class_id" → next_class_id (null = final class)
     const progressionLookup: Record<string, string | null> = {}
     const departmentsWithProgression = new Set<string>()
 
@@ -39,8 +51,21 @@ export async function POST(request: Request) {
       departmentsWithProgression.add(p.department_id)
     })
 
-    // ── 2. Fetch all active enrollments ──
-    const { data: enrollments, error: enrollError } = await supabase
+    // ── 2. Fetch all next class names upfront (avoid N+1 queries) ─────────────
+    const nextClassIds = progressionMaps
+      .map(p => p.next_class_id)
+      .filter(Boolean) as string[]
+
+    const { data: classesData } = await supabase
+      .from('classes')
+      .select('id, name')
+      .in('id', nextClassIds)
+
+    const classNameLookup: Record<string, string> = {}
+    classesData?.forEach(c => { classNameLookup[c.id] = c.name })
+
+    // ── 3. Fetch active enrollments ────────────────────────────────────────────
+    let enrollQuery = supabase
       .from('student_enrollments')
       .select(`
         id,
@@ -57,6 +82,12 @@ export async function POST(request: Request) {
       .eq('is_current', true)
       .eq('status', 'active')
 
+    if (filterByDepartments) {
+      enrollQuery = enrollQuery.in('department_id', departmentIds)
+    }
+
+    const { data: enrollments, error: enrollError } = await enrollQuery
+
     if (enrollError) {
       return NextResponse.json({ error: enrollError.message }, { status: 400 })
     }
@@ -67,17 +98,16 @@ export async function POST(request: Request) {
       })
     }
 
-    const today    = new Date().toISOString().split('T')[0]
-    let promoted   = 0
-    let passedOut  = 0
-    let skipped    = 0
-    let failed     = 0
+    const today   = new Date().toISOString().split('T')[0]
+    let promoted  = 0
+    let passedOut = 0
+    let skipped   = 0
+    let failed    = 0
     const errors: string[] = []
 
     for (const enrollment of enrollments) {
       const student = enrollment.students as any
 
-      // ── Skip: department has no progression map at all ──
       if (!departmentsWithProgression.has(enrollment.department_id)) {
         skipped++
         continue
@@ -88,13 +118,12 @@ export async function POST(request: Request) {
         const hasMapping  = Object.prototype.hasOwnProperty.call(progressionLookup, key)
         const nextClassId = hasMapping ? progressionLookup[key] : undefined
 
-        // ── Skip: this specific class has no mapping in the progression map ──
         if (nextClassId === undefined) {
           skipped++
           continue
         }
 
-        // ── Close current enrollment ──
+        // Close current enrollment
         const { error: closeError } = await supabase
           .from('student_enrollments')
           .update({
@@ -107,7 +136,8 @@ export async function POST(request: Request) {
         if (closeError) throw new Error(`Failed to close enrollment: ${closeError.message}`)
 
         if (nextClassId) {
-          // ── PROMOTE: create new enrollment in next class ──
+          // ── PROMOTE ──────────────────────────────────────────────────────────
+
           const { error: newEnrollError } = await supabase
             .from('student_enrollments')
             .insert({
@@ -121,12 +151,23 @@ export async function POST(request: Request) {
             })
 
           if (newEnrollError) throw new Error(`Failed to create enrollment: ${newEnrollError.message}`)
+
+          // ✅ Sync madrasa_grade on students table
+          const nextClassName = classNameLookup[nextClassId]
+          if (nextClassName) {
+            const { error: gradeUpdateError } = await supabase
+              .from('students')
+              .update({ madrasa_grade: nextClassName })
+              .eq('id', enrollment.student_id)
+
+            if (gradeUpdateError) throw new Error(`Failed to update grade: ${gradeUpdateError.message}`)
+          }
+
           promoted++
 
         } else {
-          // ── PASSED OUT: final class (next_class_id is null) ──
+          // ── PASSED OUT ───────────────────────────────────────────────────────
 
-          // Avoid duplicate in passed_students
           const { data: existing } = await supabase
             .from('passed_students')
             .select('id')
@@ -149,7 +190,6 @@ export async function POST(request: Request) {
             if (passedError) throw new Error(`Failed to insert passed student: ${passedError.message}`)
           }
 
-          // Mark student is_passed = true, is_active = false
           const { error: studentUpdateError } = await supabase
             .from('students')
             .update({ is_active: false, is_passed: true })

@@ -145,6 +145,7 @@ export default async function StudentsPage({
                 <PromoteStudentsDialog
                   currentYear={enrollmentSummary.currentYear}
                   totalActive={enrollmentSummary.totalActive}
+                  departments={departments}
                 />
               )}
               {view === 'active' ? (

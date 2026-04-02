@@ -104,7 +104,7 @@ export function AddStudentDialog() {
       ...formData,
       department_id: e.target.value,
       department: selectedDept?.name || '',
-      madrasa_grade: selectedDept?.name || '',
+      madrasa_grade: '',
       class_id: '', // reset class when dept changes
     })
     if (e.target.value) {
@@ -397,7 +397,14 @@ ADM2026001,M.A. Hassan,Mohamed Ali Hassan,2010-05-15,200512345678,2026-01-10,Ali
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Class (Grade) *</label>
                   <select value={formData.class_id}
-                    onChange={(e) => setFormData({ ...formData, class_id: e.target.value })}
+                    onChange={(e) => {
+                      const selectedClass = classes.find(c => c.id === e.target.value)
+                      setFormData({
+                        ...formData,
+                        class_id: e.target.value,
+                        madrasa_grade: selectedClass?.name || '',   // ← stores the class name e.g. "Grade 5"
+                      })
+                    }}
                     className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
                     required disabled={loadingClasses}>
                     <option value="">{loadingClasses ? 'Loading classes...' : 'Select class'}</option>

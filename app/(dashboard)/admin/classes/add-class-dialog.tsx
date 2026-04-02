@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, X } from 'lucide-react'
+import { X, Plus } from 'lucide-react'
 
 type Department = {
   id: string
@@ -17,7 +17,7 @@ export function AddClassDialog({ departments }: { departments: Department[] }) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
-    department_id: '',
+    department_id: departments[0]?.id || '',
     default_strength: 30,
   })
   const router = useRouter()
@@ -34,13 +34,13 @@ export function AddClassDialog({ departments }: { departments: Department[] }) {
 
     if (res.ok) {
       setOpen(false)
-      setFormData({ name: '', department_id: '', default_strength: 30 })
+      setFormData({ name: '', department_id: departments[0]?.id || '', default_strength: 30 })
       router.refresh()
     } else {
       const error = await res.json()
       alert(error.error || 'Failed to create class')
     }
-    
+
     setLoading(false)
   }
 
@@ -57,7 +57,7 @@ export function AddClassDialog({ departments }: { departments: Department[] }) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Add Class</h2>
+          <h2 className="text-xl font-semibold">Add New Class</h2>
           <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
             <X className="h-5 w-5" />
           </button>
@@ -71,7 +71,7 @@ export function AddClassDialog({ departments }: { departments: Department[] }) {
             <Input
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g., Grade 1A, Alim Year 1"
+              placeholder="e.g. Grade 1 - A"
               required
             />
           </div>
@@ -86,7 +86,7 @@ export function AddClassDialog({ departments }: { departments: Department[] }) {
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
               required
             >
-              <option value="">Select department</option>
+              <option value="" disabled>Select a department</option>
               {departments.map((dept) => (
                 <option key={dept.id} value={dept.id}>
                   {dept.name} ({dept.type})
@@ -107,7 +107,6 @@ export function AddClassDialog({ departments }: { departments: Department[] }) {
               onChange={(e) => setFormData({ ...formData, default_strength: parseInt(e.target.value) })}
               required
             />
-            <p className="text-xs text-gray-500 mt-1">Expected number of students</p>
           </div>
 
           <div className="flex gap-2 pt-4">
