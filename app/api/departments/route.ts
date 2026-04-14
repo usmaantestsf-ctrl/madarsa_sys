@@ -65,10 +65,11 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { name, type } = body
+    const { name, type, time_slots } = body  // ← added time_slots
 
     const supabase = await createClient()
-    
+
+    // Create the department first
     const { data, error } = await supabase
       .from('departments')
       .insert({ name, type, is_active: true })
@@ -77,6 +78,22 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    // Insert time slots if provided
+    if (time_slots && time_slots.length > 0) {
+      const { error: slotError } = await supabase.from('time_slots').insert(
+        time_slots.map((s: any) => ({
+          slot_number: s.slot_number,
+          start_time: s.start_time,
+          end_time: s.end_time,
+          department_id: data.id,  // link to newly created department
+        }))
+      )
+
+      if (slotError) {
+        return NextResponse.json({ error: slotError.message }, { status: 400 })
+      }
     }
 
     return NextResponse.json(data)

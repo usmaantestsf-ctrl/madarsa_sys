@@ -58,7 +58,7 @@ export function AddTimetableDialog({
 
   useEffect(() => {
     if (open) {
-      fetchTimeSlots()
+      fetchTimeSlots() 
       fetchLecturers()
       fetchSubjects()
     }
