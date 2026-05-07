@@ -19,25 +19,27 @@ type LanguageInput = {
   proficiency_level: string
 }
 
-// ✅ Generates name-based email from full name
-const generateEmail = (fullName: string): string => {
-  return fullName
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '_')
-    .replace(/[^a-z0-9_]/g, '')   // ← allow _ not .
-    + '@madrasa.lk'
-}
+const buildEmailBase = (name: string): string =>
+  name.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+
+// ── File size limits ──
+const MAX_IMAGE_SIZE_MB   = 5
+const MAX_DOC_SIZE_MB     = 20
+const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024
+const MAX_DOC_SIZE_BYTES   = MAX_DOC_SIZE_MB  * 1024 * 1024
 
 export function AddLecturerDialog() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
+  const [emailSuffix] = useState(() => Math.floor(1000 + Math.random() * 9000).toString())
+
   const [formData, setFormData] = useState({
     admission_no: '',
     admission_date: '',
     full_name: '',
+    visual_name: '',
     name_with_initial: '',
     date_of_birth: '',
     nic_no: '',
@@ -68,23 +70,73 @@ export function AddLecturerDialog() {
     { language_name: '', proficiency_level: '' }
   ])
 
+  const [lecturerImage, setLecturerImage]         = useState<File | null>(null)
+  const [lecturerDocuments, setLecturerDocuments] = useState<File[]>([])
+  const [imageError, setImageError]               = useState<string>('')
+  const [docError, setDocError]                   = useState<string>('')
+
   const router = useRouter()
+
+  const previewEmail = formData.visual_name.trim()
+    ? `${buildEmailBase(formData.visual_name)}${emailSuffix}@madrasa.lk`
+    : formData.full_name.trim()
+    ? `${buildEmailBase(formData.full_name)}${emailSuffix}@madrasa.lk`
+    : ''
+
+  // ── Image validation ──
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImageError('')
+    const file = e.target.files?.[0] || null
+    if (!file) { setLecturerImage(null); return }
+
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setImageError(`Image must be ${MAX_IMAGE_SIZE_MB}MB or less. Selected: ${(file.size / 1024 / 1024).toFixed(1)}MB`)
+      e.target.value = ''
+      setLecturerImage(null)
+      return
+    }
+    setLecturerImage(file)
+  }
+
+  // ── Documents validation ──
+  const handleDocumentsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setDocError('')
+    const files = e.target.files ? Array.from(e.target.files) : []
+    if (files.length === 0) { setLecturerDocuments([]); return }
+
+    const oversized = files.filter(f => f.size > MAX_DOC_SIZE_BYTES)
+    if (oversized.length > 0) {
+      const names = oversized.map(f => `${f.name} (${(f.size / 1024 / 1024).toFixed(1)}MB)`).join(', ')
+      setDocError(`These files exceed ${MAX_DOC_SIZE_MB}MB limit: ${names}`)
+      e.target.value = ''
+      setLecturerDocuments([])
+      return
+    }
+    setLecturerDocuments(files)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Block submit if file errors present
+    if (imageError || docError) {
+      alert('Please fix file errors before submitting.')
+      return
+    }
+
     setLoading(true)
 
     const validQualifications = qualifications.filter(q => q.degree_name.trim() !== '')
-    const validLanguages = languages.filter(l => l.language_name.trim() !== '')
+    const validLanguages      = languages.filter(l => l.language_name.trim() !== '')
 
-    // ✅ Generate email from full_name if not provided
-    const resolvedEmail    = formData.email.trim() || generateEmail(formData.full_name)
+    const resolvedEmail    = formData.email.trim() || previewEmail
     const resolvedPassword = formData.password.trim() || 'Lecturer@123'
 
     const payload = {
       admission_no:        formData.admission_no        || null,
       admission_date:      formData.admission_date      || null,
       full_name:           formData.full_name,
+      visual_name:         formData.visual_name         || null,
       name_with_initial:   formData.name_with_initial   || null,
       date_of_birth:       formData.date_of_birth       || null,
       nic_no:              formData.nic_no              || null,
@@ -103,8 +155,8 @@ export function AddLecturerDialog() {
       other_skills:        formData.other_skills        || null,
       remarks:             formData.remarks             || null,
       signature_name:      formData.signature_name      || null,
-      email:    resolvedEmail,     // ✅ always sends generated email, never null
-      password: resolvedPassword,  // ✅ always sends password, never null
+      email:    resolvedEmail,
+      password: resolvedPassword,
       qualifications: validQualifications.map(q => ({
         degree_name:    q.degree_name === 'Other' ? (q.degree_name_other || '') : q.degree_name,
         year_completed: q.year_completed ? parseInt(q.year_completed) : null,
@@ -123,10 +175,30 @@ export function AddLecturerDialog() {
     })
 
     if (res.ok) {
+      const result     = await res.json()
+      const folderSlug = result.visual_name_slug
+
+      // Upload image
+      if (lecturerImage && folderSlug) {
+        const imgForm = new FormData()
+        imgForm.append('folder_slug', folderSlug)
+        imgForm.append('type', 'image')
+        imgForm.append('files', lecturerImage)
+        await fetch('/api/lecturers/upload', { method: 'POST', body: imgForm })
+      }
+
+      // Upload documents
+      if (lecturerDocuments.length > 0 && folderSlug) {
+        const docForm = new FormData()
+        docForm.append('folder_slug', folderSlug)
+        docForm.append('type', 'documents')
+        lecturerDocuments.forEach(f => docForm.append('files', f))
+        await fetch('/api/lecturers/upload', { method: 'POST', body: docForm })
+      }
+
       setOpen(false)
       resetForm()
       router.refresh()
-      // ✅ Show the actual resolved credentials
       alert(
         `Lecturer created successfully!\n\n` +
         `Login Credentials:\nEmail: ${resolvedEmail}\nPassword: ${resolvedPassword}\n\n` +
@@ -145,6 +217,7 @@ export function AddLecturerDialog() {
       admission_no: '',
       admission_date: '',
       full_name: '',
+      visual_name: '',
       name_with_initial: '',
       date_of_birth: '',
       nic_no: '',
@@ -168,6 +241,10 @@ export function AddLecturerDialog() {
     })
     setQualifications([{ degree_name: '', year_completed: '', institute_name: '' }])
     setLanguages([{ language_name: '', proficiency_level: '' }])
+    setLecturerImage(null)
+    setLecturerDocuments([])
+    setImageError('')
+    setDocError('')
     setShowPassword(false)
   }
 
@@ -218,17 +295,15 @@ export function AddLecturerDialog() {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} autoComplete="off" className="space-y-6">
 
           {/* ── Login Credentials ── */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Login Credentials</h3>
             <p className="text-xs text-gray-500">
-              Leave blank to auto-generate from full name:{' '}
+              Leave blank to auto-generate from visual name:{' '}
               <span className="font-mono bg-gray-100 px-1 rounded">
-                {formData.full_name
-                  ? generateEmail(formData.full_name)  // ✅ live preview
-                  : 'name@madrasa.lk'}
+                {previewEmail || 'e.g. usmaan_haqqani4291@madrasa.lk'}
               </span>
             </p>
 
@@ -236,18 +311,19 @@ export function AddLecturerDialog() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                 <Input
-                  type="email"
+                  type="text"
+                  autoComplete="new-password"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder={formData.full_name ? generateEmail(formData.full_name) : 'Auto-generated from name'}
+                  placeholder={previewEmail || 'Auto-generated from visual name'}
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
                 <div className="relative">
                   <Input
                     type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder="Leave blank for Lecturer@123"
@@ -287,6 +363,17 @@ export function AddLecturerDialog() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Full Name <span className="text-red-500">*</span></label>
                 <Input value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} placeholder="e.g., Ahmed Mohamed Ali" required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Visual Name
+                  <span className="text-xs text-gray-400 font-normal ml-1">(used for login email)</span>
+                </label>
+                <Input
+                  value={formData.visual_name}
+                  onChange={(e) => setFormData({ ...formData, visual_name: e.target.value })}
+                  placeholder="e.g., Usmaan Haqqani"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name with Initial</label>
@@ -519,15 +606,70 @@ export function AddLecturerDialog() {
             </div>
           </div>
 
+          {/* ── Files ── */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Files</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              {/* Image */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Lecturer Image
+                  <span className="text-xs text-gray-400 font-normal ml-1">(max {MAX_IMAGE_SIZE_MB}MB)</span>
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                />
+                {imageError && (
+                  <p className="text-xs text-red-600 mt-1">⚠ {imageError}</p>
+                )}
+                {!imageError && lecturerImage && (
+                  <p className="text-xs text-green-600 mt-1">✓ {lecturerImage.name} ({(lecturerImage.size / 1024 / 1024).toFixed(1)}MB)</p>
+                )}
+              </div>
+
+              {/* Documents */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Lecturer Documents
+                  <span className="text-xs text-gray-400 font-normal ml-1">(max {MAX_DOC_SIZE_MB}MB each, multiple allowed)</span>
+                </label>
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleDocumentsChange}
+                  className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                />
+                {docError && (
+                  <p className="text-xs text-red-600 mt-1">⚠ {docError}</p>
+                )}
+                {!docError && lecturerDocuments.length > 0 && (
+                  <p className="text-xs text-green-600 mt-1">✓ {lecturerDocuments.length} file(s) selected</p>
+                )}
+              </div>
+
+            </div>
+            <p className="text-xs text-gray-400">
+              Saved to:{' '}
+              <span className="font-mono">
+                detail_files/lecturer/{formData.visual_name.trim() ? buildEmailBase(formData.visual_name) : formData.full_name.trim() ? buildEmailBase(formData.full_name) : 'lecturer-folder'}/
+              </span>
+            </p>
+          </div>
+
           {/* ── Submit ── */}
           <div className="flex gap-2 pt-4 sticky bottom-0 bg-white border-t">
-            <Button type="submit" disabled={loading} className="flex-1">
+            <Button type="submit" disabled={loading || !!imageError || !!docError} className="flex-1">
               {loading ? 'Creating...' : 'Create Lecturer'}
             </Button>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
           </div>
+
         </form>
       </div>
     </div>

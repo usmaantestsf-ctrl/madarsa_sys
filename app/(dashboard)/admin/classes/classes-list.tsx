@@ -14,6 +14,7 @@ type ClassWithDepartment = {
   default_strength: number
   is_active: boolean
   created_at: string
+  incharge_lecturer_id: number | null // ✅ ADDED
   departments: {
     id: string
     name: string
@@ -28,15 +29,29 @@ type Department = {
   type: string
 }
 
+// ✅ ADDED
+type Lecturer = {
+  lecturer_id: number
+  full_name: string
+}
+
 export function ClassesList({
   classes,
   departments,
+  lecturers, // ✅ ADDED
 }: {
   classes: ClassWithDepartment[]
   departments: Department[]
+  lecturers: Lecturer[] // ✅ ADDED
 }) {
   const router = useRouter()
   const [editingClass, setEditingClass] = useState<ClassWithDepartment | null>(null)
+
+  // ✅ ADDED — helper to get lecturer name from id
+  const getLecturerName = (id: number | null) => {
+    if (!id) return null
+    return lecturers.find(l => l.lecturer_id === id)?.full_name ?? null
+  }
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete "${name}"?`)) return
@@ -67,6 +82,7 @@ export function ClassesList({
             <tr>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Class Name</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Department</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">In-Charge Teacher</th> {/* ✅ ADDED */}
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Enrolled / Capacity</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Created</th>
@@ -78,6 +94,7 @@ export function ClassesList({
               const enrolled = Number(classItem.student_enrollments?.[0]?.count ?? 0)
               const isFull = enrolled >= classItem.default_strength
               const dept = classItem.departments
+              const inchargeName = getLecturerName(classItem.incharge_lecturer_id) // ✅ ADDED
               return (
                 <tr key={classItem.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">{classItem.name}</td>
@@ -89,6 +106,14 @@ export function ClassesList({
                       </div>
                     ) : (
                       <p className="text-sm text-gray-400 italic">No department</p>
+                    )}
+                  </td>
+                  {/* ✅ ADDED column */}
+                  <td className="px-4 py-3 text-sm">
+                    {inchargeName ? (
+                      <p className="text-gray-900">{inchargeName}</p>
+                    ) : (
+                      <p className="text-gray-400 italic">Not assigned</p>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm">
@@ -138,6 +163,7 @@ export function ClassesList({
         <EditClassDialog
           classItem={editingClass}
           departments={departments}
+          lecturers={lecturers} // ✅ ADDED
           onClose={() => setEditingClass(null)}
         />
       )}

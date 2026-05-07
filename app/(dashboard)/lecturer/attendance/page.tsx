@@ -7,7 +7,7 @@ import { AttendanceMarker } from '../../admin/attendance/attendance-marker'
 
 async function getLecturerInfo(userId: string) {
   const supabase = await createClient()
-  
+
   const { data: profile } = await supabase
     .from('users')
     .select('lecturer_id')
@@ -17,9 +17,9 @@ async function getLecturerInfo(userId: string) {
   if (!profile?.lecturer_id) return null
 
   const { data: lecturer } = await supabase
-    .from('lecturers')
+    .from('lecturer')                     // ← singular
     .select('*')
-    .eq('id', profile.lecturer_id)
+    .eq('old_id', profile.lecturer_id)    // ← match via old_id
     .single()
 
   return lecturer
@@ -27,7 +27,9 @@ async function getLecturerInfo(userId: string) {
 
 async function getTodayLecturerTimetable(lecturerId: string) {
   const supabase = await createClient()
-  const today = new Date().getDay()
+
+  const jsDay = new Date().getDay()
+  const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1
 
   const { data } = await supabase
     .from('timetable')
@@ -38,7 +40,7 @@ async function getTodayLecturerTimetable(lecturerId: string) {
       classes (id, name)
     `)
     .eq('lecturer_id', lecturerId)
-    .eq('day_of_week', today)
+    .eq('day_of_week', dayOfWeek)
     .eq('is_active', true)
     .is('valid_to', null)
     .order('time_slots(slot_number)')
@@ -46,12 +48,11 @@ async function getTodayLecturerTimetable(lecturerId: string) {
   return data || []
 }
 
-async function getStudents(timetableId?: string) {
+async function getStudentsForTimetable(timetableId?: string) {
   if (!timetableId) return []
 
   const supabase = await createClient()
-  
-  // Get class_id from timetable
+
   const { data: timetableEntry } = await supabase
     .from('timetable')
     .select('class_id')
@@ -60,14 +61,24 @@ async function getStudents(timetableId?: string) {
 
   if (!timetableEntry) return []
 
-  const { data } = await supabase
-    .from('students')
-    .select('id, name, admission_number')
+  const { data, error } = await supabase
+    .from('student_enrollments')
+    .select('students ( id, full_name, admission_number )')
     .eq('class_id', timetableEntry.class_id)
-    .eq('is_active', true)
-    .order('admission_number')
+    .eq('is_current', true)
+    .eq('status', 'active')
 
-  return data || []
+  if (error) console.error('Students fetch error:', error.message)
+
+  const seen = new Set()
+  return (data || [])
+    .map((e: any) => e.students)
+    .filter(Boolean)
+    .filter((s: any) => {
+      if (seen.has(s.id)) return false
+      seen.add(s.id)
+      return true
+    })
 }
 
 export default async function LecturerAttendancePage({
@@ -76,23 +87,24 @@ export default async function LecturerAttendancePage({
   searchParams: Promise<{ lesson?: string }>
 }) {
   const session = await getSession()
-  
+
   if (!session || session.role !== 'lecturer') {
     redirect('/login')
   }
 
   const lecturer = await getLecturerInfo(session.userId)
-  
+
   if (!lecturer) {
     return <div className="text-center py-12 text-red-600">No lecturer profile found</div>
   }
 
   const params = await searchParams
   const selectedLesson = params.lesson
+  const today = new Date().toISOString().split('T')[0]
 
   const [timetable, students] = await Promise.all([
-    getTodayLecturerTimetable(lecturer.id),
-    getStudents(selectedLesson),
+    getTodayLecturerTimetable(lecturer.old_id),  // ← fixed: was lecturer.id
+    getStudentsForTimetable(selectedLesson),
   ])
 
   return (
@@ -114,9 +126,18 @@ export default async function LecturerAttendancePage({
           </CardHeader>
           <CardContent>
             <AttendanceMarker
-              students={students as any}
+              students={students}
               timetableId={selectedLesson}
+              date={today}
             />
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedLesson && students.length === 0 && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-gray-500">No enrolled students found for this class.</p>
           </CardContent>
         </Card>
       )}

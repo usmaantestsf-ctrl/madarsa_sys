@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Clock } from 'lucide-react'
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 async function getLecturerTimetable(lecturerId: string) {
   const supabase = await createClient()
@@ -16,10 +16,9 @@ async function getLecturerTimetable(lecturerId: string) {
       day_of_week,
       time_slots (slot_number, start_time, end_time),
       subjects (name),
-      classes (name),
-      lecturers (name)
+      classes (name)
     `)
-    .eq('lecturer_id', lecturerId)
+    .eq('lecturer_id', lecturerId)   // ← lecturerId is old_id UUID now
     .eq('is_active', true)
     .is('valid_to', null)
     .order('day_of_week')
@@ -30,7 +29,7 @@ async function getLecturerTimetable(lecturerId: string) {
 
 async function getLecturerInfo(userId: string) {
   const supabase = await createClient()
-  
+
   const { data: profile } = await supabase
     .from('users')
     .select('lecturer_id')
@@ -40,9 +39,9 @@ async function getLecturerInfo(userId: string) {
   if (!profile?.lecturer_id) return null
 
   const { data: lecturer } = await supabase
-    .from('lecturers')
+    .from('lecturer')                     // ← singular
     .select('*')
-    .eq('id', profile.lecturer_id)
+    .eq('old_id', profile.lecturer_id)    // ← match via old_id
     .single()
 
   return lecturer
@@ -50,20 +49,19 @@ async function getLecturerInfo(userId: string) {
 
 export default async function LecturerTimetablePage() {
   const session = await getSession()
-  
+
   if (!session || session.role !== 'lecturer') {
     redirect('/login')
   }
 
   const lecturer = await getLecturerInfo(session.userId)
-  
+
   if (!lecturer) {
     return <div className="text-center py-12 text-red-600">No lecturer profile found</div>
   }
 
-  const timetable = await getLecturerTimetable(lecturer.id)
+  const timetable = await getLecturerTimetable(lecturer.old_id)  // ← fixed: was lecturer.id
 
-  // Group by day
   const timetableByDay: Record<number, any[]> = {}
   timetable.forEach((entry: any) => {
     if (!timetableByDay[entry.day_of_week]) {
@@ -89,7 +87,6 @@ export default async function LecturerTimetablePage() {
         <div className="grid gap-6">
           {DAYS.map((day, dayIndex) => {
             const dayClasses = timetableByDay[dayIndex] || []
-            
             if (dayClasses.length === 0) return null
 
             return (

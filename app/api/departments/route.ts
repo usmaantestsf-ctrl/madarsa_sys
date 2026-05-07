@@ -1,41 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-
-
-// ✅ ADD THIS — fetches all active departments for dropdowns
-// export async function GET() {
-//   try {
-//     const supabase = await createClient()
-
-//     const { data, error } = await supabase
-//       .from('departments')
-//       .select('id, name, type, is_active')
-//       .eq('is_active', true)
-//       .order('name')
-
-//     if (error) {
-//       return NextResponse.json({ error: error.message }, { status: 400 })
-//     }
-
-//     return NextResponse.json(data)
-//   } catch (error) {
-//     return NextResponse.json(
-//       { error: 'Internal server error' },
-//       { status: 500 }
-//     )
-//   }
-// }
-
-
-// api/departments/route.ts
-// Add a second route or check for query param
-
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
-    const activeOnly = searchParams.get('active') === 'true'  // ✅ NEW
+    const activeOnly = searchParams.get('active') === 'true'
 
     let query = supabase
       .from('departments')
@@ -43,7 +13,7 @@ export async function GET(request: Request) {
       .order('name')
 
     if (activeOnly) {
-      query = query.eq('is_active', true)   // ✅ only filter when ?active=true
+      query = query.eq('is_active', true)
     }
 
     const { data, error } = await query
@@ -54,25 +24,25 @@ export async function GET(request: Request) {
 
     return NextResponse.json(data)
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { name, type, time_slots } = body  // ← added time_slots
+    const { name, type, incharge_lecturer_id } = body // ✅ removed time_slots, added incharge_lecturer_id
 
     const supabase = await createClient()
 
-    // Create the department first
     const { data, error } = await supabase
       .from('departments')
-      .insert({ name, type, is_active: true })
+      .insert({
+        name,
+        type,
+        is_active: true,
+        incharge_lecturer_id: incharge_lecturer_id ?? null, // ✅ ADDED
+      })
       .select()
       .single()
 
@@ -80,29 +50,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    // Insert time slots if provided
-    if (time_slots && time_slots.length > 0) {
-      const { error: slotError } = await supabase.from('time_slots').insert(
-        time_slots.map((s: any) => ({
-          slot_number: s.slot_number,
-          start_time: s.start_time,
-          end_time: s.end_time,
-          department_id: data.id,  // link to newly created department
-        }))
-      )
-
-      if (slotError) {
-        return NextResponse.json({ error: slotError.message }, { status: 400 })
-      }
-    }
-
     return NextResponse.json(data)
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-
-

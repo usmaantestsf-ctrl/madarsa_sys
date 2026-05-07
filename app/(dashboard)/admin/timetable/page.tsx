@@ -23,11 +23,12 @@ async function getClasses() {
   return data || []
 }
 
-async function getTimetable(classId?: string) {
+async function getTimetable(classId?: string, dayOfWeek?: string) {
   if (!classId) return []
 
   const supabase = await createClient()
-  const { data, error } = await supabase
+
+  let query = supabase
     .from('timetable')
     .select(`
       *,
@@ -38,26 +39,33 @@ async function getTimetable(classId?: string) {
     `)
     .eq('class_id', classId)
     .eq('is_active', true)
-    .order('day_of_week')
 
+  // If a specific day is selected, filter to that day only
+  if (dayOfWeek !== undefined && dayOfWeek !== '') {
+    query = query.eq('day_of_week', parseInt(dayOfWeek))
+  }
+
+  query = query.order('day_of_week')
+
+  const { data, error } = await query
   if (error) console.error('Timetable error:', error.message)
-
   return data || []
 }
 
 export default async function TimetablePage({
   searchParams,
 }: {
-  searchParams: Promise<{ department?: string; class?: string }>
+  searchParams: Promise<{ department?: string; class?: string; day?: string }>
 }) {
   const params = await searchParams
   const selectedDepartment = params.department
   const selectedClass = params.class
+  const selectedDay = params.day  // ← new
 
   const [departments, classes, timetable] = await Promise.all([
     getDepartments(),
     getClasses(),
-    getTimetable(selectedClass),
+    getTimetable(selectedClass, selectedDay),
   ])
 
   return (
@@ -72,6 +80,7 @@ export default async function TimetablePage({
         classes={classes}
         selectedDepartment={selectedDepartment}
         selectedClass={selectedClass}
+        selectedDay={selectedDay}  // ← new
       />
 
       {selectedClass ? (

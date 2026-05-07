@@ -8,7 +8,7 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await request.json()
-    const { name, department_id, default_strength, is_active } = body
+    const { name, department_id, default_strength, is_active, incharge_lecturer_id } = body // ✅ ADDED
 
     const supabase = await createClient()
 
@@ -19,6 +19,7 @@ export async function PUT(
         department_id,
         default_strength,
         is_active,
+        incharge_lecturer_id: incharge_lecturer_id ?? null, // ✅ ADDED
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -35,6 +36,7 @@ export async function PUT(
   }
 }
 
+// ✅ DELETE — completely unchanged
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -43,7 +45,6 @@ export async function DELETE(
     const { id } = await params
     const supabase = await createClient()
 
-    // ✅ Check if any students are enrolled in this class
     const { count } = await supabase
       .from('student_enrollments')
       .select('*', { count: 'exact', head: true })

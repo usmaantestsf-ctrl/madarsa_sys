@@ -9,7 +9,6 @@ async function getClassesWithDepartments(searchQuery?: string) {
 
   let departmentIds: string[] = []
 
-  // Step 1: find department IDs that match the search term
   if (searchQuery) {
     const { data: matchingDepts } = await supabase
       .from('departments')
@@ -19,7 +18,6 @@ async function getClassesWithDepartments(searchQuery?: string) {
     departmentIds = matchingDepts?.map((d) => d.id) ?? []
   }
 
-  // Step 2: fetch classes — filter by class name OR matching department_id
   let query = supabase
     .from('classes')
     .select(`
@@ -42,7 +40,6 @@ async function getClassesWithDepartments(searchQuery?: string) {
         `name.ilike.%${searchQuery}%,department_id.in.(${departmentIds.join(',')})`
       )
     } else {
-      // no departments matched, fall back to class name only
       query = query.ilike('name', `%${searchQuery}%`)
     }
   }
@@ -68,6 +65,17 @@ async function getDepartments() {
   return departments || []
 }
 
+// ✅ ADDED
+async function getLecturers() {
+  const supabase = await createClient()
+  const { data: lecturers } = await supabase
+    .from('lecturer')
+    .select('lecturer_id, full_name')  // once we need visual name will chnage here: will change here
+    .order('full_name')
+
+  return lecturers || []
+}
+
 export default async function ClassesPage({
   searchParams,
 }: {
@@ -76,9 +84,10 @@ export default async function ClassesPage({
   const params = await searchParams
   const searchQuery = params.search
 
-  const [classes, departments] = await Promise.all([
+  const [classes, departments, lecturers] = await Promise.all([ // ✅ ADDED lecturers
     getClassesWithDepartments(searchQuery),
-    getDepartments()
+    getDepartments(),
+    getLecturers(), // ✅ ADDED
   ])
 
   return (
@@ -88,7 +97,7 @@ export default async function ClassesPage({
           <h1 className="text-3xl font-bold text-gray-900">Classes</h1>
           <p className="text-gray-500 mt-1">Manage madrasa classes and student groups</p>
         </div>
-        <AddClassDialog departments={departments} />
+        <AddClassDialog departments={departments} lecturers={lecturers} /> {/* ✅ ADDED prop */}
       </div>
 
       <ClassesSearch initialSearch={searchQuery} />
@@ -96,14 +105,14 @@ export default async function ClassesPage({
       <Card>
         <CardHeader>
           <CardTitle>
-            {searchQuery 
-              ? `Search Results (${classes.length})` 
+            {searchQuery
+              ? `Search Results (${classes.length})`
               : `All Classes (${classes.length})`
             }
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ClassesList classes={classes} departments={departments} />
+          <ClassesList classes={classes} departments={departments} lecturers={lecturers} /> {/* ✅ ADDED prop */}
         </CardContent>
       </Card>
     </div>

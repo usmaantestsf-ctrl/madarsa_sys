@@ -6,9 +6,10 @@ import { Calendar, Users, ClipboardCheck } from 'lucide-react'
 
 async function getLecturerStats(lecturerId: string) {
   const supabase = await createClient()
-  const today = new Date().getDay()
 
-  // Get today's classes for this lecturer
+  const jsDay = new Date().getDay()
+  const today = jsDay === 0 ? 6 : jsDay - 1
+
   const { data: todayClasses } = await supabase
     .from('timetable')
     .select(`
@@ -23,7 +24,6 @@ async function getLecturerStats(lecturerId: string) {
     .is('valid_to', null)
     .order('time_slots(slot_number)')
 
-  // Get total classes this week
   const { count: weeklyClasses } = await supabase
     .from('timetable')
     .select('*', { count: 'exact', head: true })
@@ -39,7 +39,7 @@ async function getLecturerStats(lecturerId: string) {
 
 async function getLecturerInfo(userId: string) {
   const supabase = await createClient()
-  
+
   const { data: profile } = await supabase
     .from('users')
     .select('lecturer_id')
@@ -49,9 +49,9 @@ async function getLecturerInfo(userId: string) {
   if (!profile?.lecturer_id) return null
 
   const { data: lecturer } = await supabase
-    .from('lecturers')
+    .from('lecturer')
     .select('*')
-    .eq('id', profile.lecturer_id)
+    .eq('old_id', profile.lecturer_id)
     .single()
 
   return lecturer
@@ -59,13 +59,13 @@ async function getLecturerInfo(userId: string) {
 
 export default async function LecturerDashboard() {
   const session = await getSession()
-  
+
   if (!session || session.role !== 'lecturer') {
     redirect('/login')
   }
 
   const lecturer = await getLecturerInfo(session.userId)
-  
+
   if (!lecturer) {
     return (
       <div className="text-center py-12">
@@ -74,7 +74,7 @@ export default async function LecturerDashboard() {
     )
   }
 
-  const stats = await getLecturerStats(lecturer.id)
+  const stats = await getLecturerStats(lecturer.old_id)  // ← fixed
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -86,7 +86,9 @@ export default async function LecturerDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Welcome, {lecturer.name}</h1>
+        <h1 className="text-3xl font-bold text-gray-900">
+          Welcome, {lecturer.full_name}  {/* ← fixed */}
+        </h1>
         <p className="text-gray-500 mt-1">{today}</p>
       </div>
 
@@ -140,7 +142,9 @@ export default async function LecturerDashboard() {
         </CardHeader>
         <CardContent>
           {stats.todayClasses.length === 0 ? (
-            <p className="text-center text-gray-500 py-8">No classes scheduled for today</p>
+            <p className="text-center text-gray-500 py-8">
+              No classes scheduled for today
+            </p>
           ) : (
             <div className="space-y-3">
               {stats.todayClasses.map((cls: any) => (

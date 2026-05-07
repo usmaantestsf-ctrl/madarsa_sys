@@ -2,6 +2,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+const buildEmailBase = (name: string): string =>
+  name.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -16,6 +19,7 @@ export async function POST(request: Request) {
         admission_no:        lecturerData.admission_no        || null,
         admission_date:      lecturerData.admission_date      || null,
         full_name:           lecturerData.full_name,
+        visual_name:         lecturerData.visual_name         || null,  // ← NEW
         name_with_initial:   lecturerData.name_with_initial   || null,
         date_of_birth:       lecturerData.date_of_birth       || null,
         nic_no:              lecturerData.nic_no              || null,
@@ -42,11 +46,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: lecturerError.message }, { status: 400 })
     }
 
-    // ── Step 2: Build credentials ──
-    const userEmail =
-      email?.trim() ||
-      `${lecturerData.full_name.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}@madrasa.lk`
+    // ── Step 2: Build credentials using visual_name (with _) + 4 random digits ──
+    const fourDigits = Math.floor(1000 + Math.random() * 9000).toString()
+    const nameBase = lecturerData.visual_name?.trim()
+      ? buildEmailBase(lecturerData.visual_name)
+      : buildEmailBase(lecturerData.full_name)
 
+    const userEmail    = email?.trim() || `${nameBase}${fourDigits}@madrasa.lk`
     const userPassword = password?.trim() || 'Lecturer@123'
 
     // ── Step 3: Create user row ──
@@ -123,9 +129,10 @@ export async function POST(request: Request) {
       .single()
 
     return NextResponse.json({
-      success:     true,
-      data:        completeLecturer,
-      lecturer_id: lecturer.lecturer_id,
+      success:          true,
+      data:             completeLecturer,
+      lecturer_id:      lecturer.lecturer_id,
+      visual_name_slug: nameBase,   // ← returned so dialog uses for file upload folder
       credentials: {
         email:    userEmail,
         password: userPassword,
