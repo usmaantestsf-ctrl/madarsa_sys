@@ -28,22 +28,9 @@ type TimetableEntry = {
   } | null
 }
 
-type Subject = {
-  id: string
-  name: string
-}
-
-type Lecturer = {
-  id: string
-  name: string
-}
-
-type TimeSlot = {
-  id: string
-  slot_number: number
-  start_time: string
-  end_time: string
-}
+type Subject = { id: string; name: string }
+type Lecturer = { id: string; name: string }
+type TimeSlot = { id: string; slot_number: number; start_time: string; end_time: string }
 
 const daysOfWeek = [
   { value: 0, label: 'Monday' },
@@ -51,44 +38,50 @@ const daysOfWeek = [
   { value: 2, label: 'Wednesday' },
   { value: 3, label: 'Thursday' },
   { value: 4, label: 'Friday' },
-  { value: 5, label: 'Saturday' },
+  { value: 5, label:'Saturday' },
+  { value: 6, label: 'Sunday' },
 ]
 
 export function EditTimetableDialog({
   entry,
-  subjects,
+  departmentId,   // ← NEW: needed to fetch subjects correctly
   onClose,
 }: {
   entry: TimetableEntry
-  subjects: Subject[]
+  departmentId: string
   onClose: () => void
 }) {
-  const [loading, setLoading] = useState(false)
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
-  const [lecturers, setLecturers] = useState<Lecturer[]>([])
-  const [loadingSlots, setLoadingSlots] = useState(true)
+  const [loading, setLoading]               = useState(false)
+  const [timeSlots, setTimeSlots]           = useState<TimeSlot[]>([])
+  const [lecturers, setLecturers]           = useState<Lecturer[]>([])
+  const [subjects, setSubjects]             = useState<Subject[]>([])   // ← fetched internally now
+  const [loadingSlots, setLoadingSlots]     = useState(true)
   const [loadingLecturers, setLoadingLecturers] = useState(true)
+  const [loadingSubjects, setLoadingSubjects]   = useState(true)
+
   const [formData, setFormData] = useState({
-    subject_id: entry.subject_id,
-    lecturer_id: entry.lecturer_id || '',
-    day_of_week: entry.day_of_week,
+    subject_id:   entry.subject_id,
+    lecturer_id:  entry.lecturer_id || '',
+    day_of_week:  entry.day_of_week,
     time_slot_id: entry.time_slot_id,
   })
+
   const router = useRouter()
 
   useEffect(() => {
     fetchTimeSlots()
     fetchLecturers()
+    fetchSubjects()
   }, [])
 
   const fetchTimeSlots = async () => {
     try {
       setLoadingSlots(true)
-      const res = await fetch('/api/time-slots')
-      if (res.ok) {
-        const data = await res.json()
-        setTimeSlots(data)
-      }
+      // Use same params as add dialog so we get the right slots for this day
+      const res = await fetch(
+        `/api/time-slots?departmentId=${departmentId}&classId=${entry.class_id}&dayOfWeek=${entry.day_of_week}`
+      )
+      if (res.ok) setTimeSlots(await res.json())
     } catch (err) {
       console.error('Error fetching time slots:', err)
     } finally {
@@ -100,14 +93,24 @@ export function EditTimetableDialog({
     try {
       setLoadingLecturers(true)
       const res = await fetch('/api/lecturers/list')
-      if (res.ok) {
-        const data = await res.json()
-        setLecturers(data)
-      }
+      if (res.ok) setLecturers(await res.json())
     } catch (err) {
       console.error('Error fetching lecturers:', err)
     } finally {
       setLoadingLecturers(false)
+    }
+  }
+
+  const fetchSubjects = async () => {
+    try {
+      setLoadingSubjects(true)
+      // ← Same endpoint as add dialog — filtered by department
+      const res = await fetch(`/api/subjects?departmentId=${departmentId}`)
+      if (res.ok) setSubjects(await res.json())
+    } catch (err) {
+      console.error('Error fetching subjects:', err)
+    } finally {
+      setLoadingSubjects(false)
     }
   }
 
@@ -119,24 +122,19 @@ export function EditTimetableDialog({
     return `${displayHour}:${minutes} ${ampm}`
   }
 
-  const selectedTimeSlot = timeSlots.find(
-    (slot) => slot.id === formData.time_slot_id
-  )
+  const selectedTimeSlot = timeSlots.find((slot) => slot.id === formData.time_slot_id)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-
     try {
-      const payload = {
-        ...formData,
-        lecturer_id: formData.lecturer_id || null,
-      }
-
       const res = await fetch(`/api/timetable/${entry.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...formData,
+          lecturer_id: formData.lecturer_id || null,
+        }),
       })
 
       if (res.ok) {
@@ -157,6 +155,8 @@ export function EditTimetableDialog({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
+
+        {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">Edit Timetable Entry</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -165,26 +165,25 @@ export function EditTimetableDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Day of Week */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Day of Week <span className="text-red-500">*</span>
             </label>
             <select
               value={formData.day_of_week}
-              onChange={(e) =>
-                setFormData({ ...formData, day_of_week: parseInt(e.target.value) })
-              }
+              onChange={(e) => setFormData({ ...formData, day_of_week: parseInt(e.target.value) })}
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
               required
             >
               {daysOfWeek.map((day) => (
-                <option key={day.value} value={day.value}>
-                  {day.label}
-                </option>
+                <option key={day.value} value={day.value}>{day.label}</option>
               ))}
             </select>
           </div>
 
+          {/* Time Slot */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Time Slot <span className="text-red-500">*</span>
@@ -201,19 +200,18 @@ export function EditTimetableDialog({
               </option>
               {timeSlots.map((slot) => (
                 <option key={slot.id} value={slot.id}>
-                  Slot {slot.slot_number} - {formatTime(slot.start_time)} to{' '}
-                  {formatTime(slot.end_time)}
+                  Slot {slot.slot_number} — {formatTime(slot.start_time)} to {formatTime(slot.end_time)}
                 </option>
               ))}
             </select>
             {selectedTimeSlot && (
-              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
-                <strong>Selected Time:</strong> {formatTime(selectedTimeSlot.start_time)} -{' '}
-                {formatTime(selectedTimeSlot.end_time)}
-              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {formatTime(selectedTimeSlot.start_time)} – {formatTime(selectedTimeSlot.end_time)}
+              </p>
             )}
           </div>
 
+          {/* Subject */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Subject <span className="text-red-500">*</span>
@@ -223,8 +221,11 @@ export function EditTimetableDialog({
               onChange={(e) => setFormData({ ...formData, subject_id: e.target.value })}
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
               required
+              disabled={loadingSubjects}
             >
-              <option value="">Select subject</option>
+              <option value="">
+                {loadingSubjects ? 'Loading subjects...' : 'Select subject'}
+              </option>
               {subjects.map((subject) => (
                 <option key={subject.id} value={subject.id}>
                   {subject.name}
@@ -233,10 +234,9 @@ export function EditTimetableDialog({
             </select>
           </div>
 
+          {/* Lecturer */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Lecturer
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Lecturer</label>
             <select
               value={formData.lecturer_id}
               onChange={(e) => setFormData({ ...formData, lecturer_id: e.target.value })}
@@ -254,7 +254,7 @@ export function EditTimetableDialog({
             </select>
           </div>
 
-          <div className="flex gap-2 pt-4">
+          <div className="flex gap-2 pt-2">
             <Button type="submit" disabled={loading} className="flex-1">
               {loading ? 'Updating...' : 'Update Entry'}
             </Button>
@@ -262,6 +262,7 @@ export function EditTimetableDialog({
               Cancel
             </Button>
           </div>
+
         </form>
       </div>
     </div>

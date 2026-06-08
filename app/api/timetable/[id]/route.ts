@@ -1,6 +1,39 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const body = await request.json()
+    const { subject_id, lecturer_id, day_of_week, time_slot_id } = body
+
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+      .from('timetable')
+      .update({
+        subject_id,
+        lecturer_id: lecturer_id || null,
+        day_of_week,
+        time_slot_id,
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    return NextResponse.json({ success: true, data })
+  } catch (error) {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -8,7 +41,7 @@ export async function DELETE(
   try {
     const { id } = await params
     const supabase = await createClient()
-    
+
     const { error } = await supabase
       .from('timetable')
       .delete()
@@ -20,9 +53,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

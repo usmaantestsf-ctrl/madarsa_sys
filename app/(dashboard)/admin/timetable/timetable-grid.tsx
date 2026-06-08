@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Pencil, Trash2, Clock, User, BookOpen } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { EditTimetableDialog } from './edit-timetable-dialog'
 
 type TimetableEntry = {
   id: string
@@ -32,9 +33,17 @@ type TimetableEntry = {
   }
 }
 
-const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+type Subject = { id: string; name: string }
 
-export function TimetableGrid({ timetable }: { timetable: TimetableEntry[] }) {
+const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday','Sunday']
+
+export function TimetableGrid({
+  timetable,
+  departmentId,
+}: {
+  timetable: TimetableEntry[]
+  departmentId: string
+}) {
   const router = useRouter()
   const [editingEntry, setEditingEntry] = useState<TimetableEntry | null>(null)
 
@@ -57,7 +66,11 @@ export function TimetableGrid({ timetable }: { timetable: TimetableEntry[] }) {
     day,
     entries: timetable
       .filter((entry) => entry.day_of_week === index)
-      .sort((a, b) => (a.time_slots?.slot_number ?? Infinity) - (b.time_slots?.slot_number ?? Infinity)),
+      .sort(
+        (a, b) =>
+          (a.time_slots?.slot_number ?? Infinity) -
+          (b.time_slots?.slot_number ?? Infinity)
+      ),
   }))
 
   if (timetable.length === 0) {
@@ -74,42 +87,53 @@ export function TimetableGrid({ timetable }: { timetable: TimetableEntry[] }) {
         {groupedByDay.map(({ day, entries }) => {
           if (entries.length === 0) return null
           return (
-            <div key={day} className="border rounded-lg overflow-hidden">
-              <div className="bg-primary-50 px-4 py-3 border-b">
-                <h3 className="font-semibold text-primary-900">{day}</h3>
+            <div key={day} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                <h3 className="font-semibold text-gray-900">{day}</h3>
               </div>
-              <div className="divide-y">
+              <div className="divide-y divide-gray-100">
                 {entries.map((entry) => (
-                  <div key={entry.id} className="p-4 hover:bg-gray-50 flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-4 mb-2">
-                        <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
-                          <Clock className="h-4 w-4 text-gray-400" />
-                          <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-semibold mr-1">
-                            Slot {entry.time_slots?.slot_number}
-                          </span>
-                          {entry.time_slots?.start_time && entry.time_slots?.end_time && (
-                            <>
-                              {formatTime(entry.time_slots.start_time)} -{' '}
-                              {formatTime(entry.time_slots.end_time)}
-                            </>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-700">
-                          <BookOpen className="h-4 w-4 text-gray-400" />
-                          {entry.subjects?.name || 'Unknown Subject'}
-                        </div>
+                  <div
+                    key={entry.id}
+                    className="px-4 py-3 flex items-center justify-between hover:bg-gray-50"
+                  >
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <div className="text-xs font-medium text-gray-500 w-14">
+                        Slot {entry.time_slots?.slot_number}
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <User className="h-4 w-4 text-gray-400" />
+
+                      {entry.time_slots?.start_time && entry.time_slots?.end_time && (
+                        <div className="flex items-center gap-1 text-sm text-gray-600 w-36">
+                          <Clock className="h-3 w-3 shrink-0" />
+                          {formatTime(entry.time_slots.start_time)} –{' '}
+                          {formatTime(entry.time_slots.end_time)}
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-1 text-sm font-medium text-gray-900">
+                        <BookOpen className="h-3 w-3 text-blue-600 shrink-0" />
+                        {entry.subjects?.name || 'Unknown Subject'}
+                      </div>
+
+                      <div className="flex items-center gap-1 text-sm text-gray-500">
+                        <User className="h-3 w-3 shrink-0" />
                         {entry.lecturer?.full_name || 'No lecturer assigned'}
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => setEditingEntry(entry)}>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingEntry(entry)}
+                      >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(entry.id)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(entry.id)}
+                      >
                         <Trash2 className="h-4 w-4 text-red-600" />
                       </Button>
                     </div>
@@ -120,6 +144,25 @@ export function TimetableGrid({ timetable }: { timetable: TimetableEntry[] }) {
           )
         })}
       </div>
+
+      {/* Edit dialog */}
+      {editingEntry && (
+        <EditTimetableDialog
+          entry={{
+            ...editingEntry,
+            // Normalise lecturer shape: grid stores { lecturer_id, full_name }
+            // but dialog expects { id, name } via lecturers prop
+            lecturers: editingEntry.lecturer
+              ? {
+                  id: String(editingEntry.lecturer.lecturer_id),
+                  name: editingEntry.lecturer.full_name,
+                }
+              : null,
+          }}
+          departmentId={departmentId}
+          onClose={() => setEditingEntry(null)}
+        />
+      )}
     </>
   )
 }

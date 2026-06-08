@@ -40,7 +40,6 @@ async function getTimetable(classId?: string, dayOfWeek?: string) {
     .eq('class_id', classId)
     .eq('is_active', true)
 
-  // If a specific day is selected, filter to that day only
   if (dayOfWeek !== undefined && dayOfWeek !== '') {
     query = query.eq('day_of_week', parseInt(dayOfWeek))
   }
@@ -60,7 +59,7 @@ export default async function TimetablePage({
   const params = await searchParams
   const selectedDepartment = params.department
   const selectedClass = params.class
-  const selectedDay = params.day  // ← new
+  const selectedDay = params.day
 
   const [departments, classes, timetable] = await Promise.all([
     getDepartments(),
@@ -80,7 +79,7 @@ export default async function TimetablePage({
         classes={classes}
         selectedDepartment={selectedDepartment}
         selectedClass={selectedClass}
-        selectedDay={selectedDay}  // ← new
+        selectedDay={selectedDay}
       />
 
       {selectedClass ? (
@@ -89,7 +88,10 @@ export default async function TimetablePage({
             <CardTitle>Weekly Schedule</CardTitle>
           </CardHeader>
           <CardContent>
-            <TimetableGrid timetable={timetable as any} />
+            <TimetableGrid
+              timetable={timetable as any}
+              departmentId={selectedDepartment || ''}
+            />
           </CardContent>
         </Card>
       ) : (
