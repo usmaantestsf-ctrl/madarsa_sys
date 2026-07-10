@@ -19,7 +19,7 @@ async function getLecturerInfo(userId: string) {
   const { data: lecturer } = await supabase
     .from('lecturer')                     // ← singular
     .select('*')
-    .eq('old_id', profile.lecturer_id)    // ← match via old_id
+    .eq('lecturer_uuid', profile.lecturer_id)    
     .single()
 
   return lecturer
@@ -103,7 +103,7 @@ export default async function LecturerAttendancePage({
   const today = new Date().toISOString().split('T')[0]
 
   const [timetable, students] = await Promise.all([
-    getTodayLecturerTimetable(lecturer.old_id),  // ← fixed: was lecturer.id
+    getTodayLecturerTimetable(lecturer.lecturer_uuid),  // ← fixed: was lecturer.id
     getStudentsForTimetable(selectedLesson),
   ])
 

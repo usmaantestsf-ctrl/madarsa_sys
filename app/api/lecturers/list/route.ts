@@ -7,7 +7,7 @@ export async function GET() {
 
     const { data: lecturers, error } = await supabase
       .from('lecturer')
-      .select('old_id, full_name')
+      .select('lecturer_uuid, full_name')
       .order('full_name', { ascending: true })
 
     if (error) {
@@ -15,7 +15,7 @@ export async function GET() {
     }
 
     const transformed = lecturers.map(lecturer => ({
-      id: lecturer.old_id,
+      id: lecturer.lecturer_uuid,
       name: lecturer.full_name
     }))
 

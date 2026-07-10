@@ -51,7 +51,7 @@ async function getLecturerInfo(userId: string) {
   const { data: lecturer } = await supabase
     .from('lecturer')
     .select('*')
-    .eq('old_id', profile.lecturer_id)
+    .eq('lecturer_uuid', profile.lecturer_id)
     .single()
 
   return lecturer
@@ -74,7 +74,7 @@ export default async function LecturerDashboard() {
     )
   }
 
-  const stats = await getLecturerStats(lecturer.old_id)  // ← fixed
+  const stats = await getLecturerStats(lecturer.lecturer_uuid)  // ← fixed
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',

@@ -1,11 +1,23 @@
 import { Sidebar } from '@/components/layout/sidebar-lecturer'
 import { Header } from '@/components/layout/header'
+import { getSession } from '@/lib/auth'
+import { redirect } from 'next/navigation'
 
-export default function LecturerLayout({
+export default async function LecturerLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const session = await getSession()
+
+  if (!session) {
+    redirect('/login')
+  }
+
+  if (session.role !== 'lecturer') {
+    redirect('/admin')
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
